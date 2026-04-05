@@ -1,3 +1,31 @@
+# ========================================
+# RAG 毕业论文项目 .gitignore 规范配置
+# ========================================
+
+# 1. Python 缓存和系统垃圾
 __pycache__/
-*.pyc
+.pyc
+*.py[cod]
+*$py.class
+.DS_Store
+
+# 2. 环境变量与机密信息 (极其重要：防止大模型 API Key 泄露！)
 .env
+*.env
+
+# 3. AI 助手与编辑器本地配置
+.claude/
+.vscode/
+.idea/
+
+# 4. 向量数据库 (由代码动态生成，体积大，勿传)
+chroma_db/
+
+# 5. 实验日志与评估结果输出
+# 下面两行的意思是：忽略 results 文件夹下的所有东西，但保留 .gitkeep 文件
+results/*
+!results/.gitkeep
+
+# 6. 数据集 (建议：取消注释以忽略庞大的原始数据)
+data/*
+!data/.gitkeep
