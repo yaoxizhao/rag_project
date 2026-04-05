@@ -1,0 +1,11 @@
+{
+  "source_file": "/data/zhaoyaoxi/rag_project/results/naive_rag_dev_20260404_152931.csv",
+  "evaluated_at": "2026-04-04T16:46:45.336116",
+  "num_samples": 200,
+  "scores": {
+    "faithfulness": 0.2976309523809524,
+    "answer_relevancy": 0.05302023759459479,
+    "context_recall": 0.01739786967418546,
+    "context_precision": 0.06708333332702082
+  }
+}

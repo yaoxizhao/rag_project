@@ -1,0 +1,8 @@
+{
+  "source_file": "/data/zhaoyaoxi/rag_project/results/no_rag_dev_20260404_152936.csv",
+  "evaluated_at": "2026-04-04T16:20:08.380958",
+  "num_samples": 200,
+  "scores": {
+    "answer_relevancy": 0.7789657729056301
+  }
+}

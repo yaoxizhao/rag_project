@@ -1,0 +1,237 @@
+/data/zhaoyaoxi/anaconda3/envs/rag_project/lib/python3.10/site-packages/transformers/utils/hub.py:110: FutureWarning: Using `TRANSFORMERS_CACHE` is deprecated and will be removed in v5 of Transformers. Use `HF_HOME` instead.
+  warnings.warn(
+15:27:54 [INFO] ============================================================
+15:27:54 [INFO]  实验配置
+15:27:54 [INFO]    mode       : no_rag
+15:27:54 [INFO]    dataset    : dev  (200 queries)
+15:27:54 [INFO]    collection : nq_dev  (naive_rag 时使用)
+15:27:54 [INFO] ============================================================
+15:27:54 [INFO] [Step 1] 加载测试集 …
+15:27:54 [INFO] [Cache] corpus.jsonl 已存在，跳过下载
+15:27:54 [INFO] [Cache] queries.jsonl 已存在，跳过下载
+15:27:54 [INFO] [Cache] qrels/test.tsv 已存在，跳过下载
+15:27:54 [INFO] [Qrels] 读取 /data/zhaoyaoxi/huggingface_cache/beir_nq/qrels/test.tsv …
+15:27:54 [INFO] [Qrels] 正相关条目 query 数: 3,452
+15:27:54 [INFO] [Cache] corpus.jsonl 已存在，跳过下载
+15:27:54 [INFO] [Cache] queries.jsonl 已存在，跳过下载
+15:27:54 [INFO] [Cache] qrels/test.tsv 已存在，跳过下载
+15:27:54 [INFO] [Queries] 读取 /data/zhaoyaoxi/huggingface_cache/beir_nq/queries.jsonl …
+15:27:54 [INFO] [Queries] 全量 queries: 3,452 条
+15:27:54 [INFO] [Corpus] 需要获取 ground-truth 的文档: 243 篇，流式扫描 corpus.jsonl …
+15:27:54 [INFO] [Cache] corpus.jsonl 已存在，跳过下载
+15:27:54 [INFO] [Cache] queries.jsonl 已存在，跳过下载
+15:27:54 [INFO] [Cache] qrels/test.tsv 已存在，跳过下载
+15:27:54 [INFO] [Corpus] ground-truth 命中: 243/243
+15:27:54 [INFO] [Queries] 最终样本数: 200
+15:27:54 [INFO]   已加载 200 条 query
+15:27:54 [INFO] [Step 2] 初始化 RAG 组件 …
+15:27:55 [INFO] [Generator] 初始化完成: http://localhost:8000/v1 / Qwen2.5-7B-Instruct
+15:27:55 [INFO] [Step 3] 开始推理（mode=no_rag，共 200 条）…
+[no_rag]:   0%|          | 0/200 [00:00<?, ?query/s]15:27:56 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:   0%|          | 1/200 [00:00<03:15,  1.02query/s]15:27:56 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:   1%|          | 2/200 [00:01<01:48,  1.82query/s]15:27:57 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:   2%|▏         | 3/200 [00:01<02:04,  1.58query/s]15:27:57 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:   2%|▏         | 4/200 [00:02<01:47,  1.83query/s]15:27:57 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:   2%|▎         | 5/200 [00:02<01:24,  2.31query/s]15:27:57 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:   3%|▎         | 6/200 [00:02<01:08,  2.85query/s]15:27:58 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:   4%|▎         | 7/200 [00:03<01:04,  2.97query/s]15:27:58 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:   4%|▍         | 8/200 [00:03<01:03,  3.02query/s]15:27:58 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:   4%|▍         | 9/200 [00:03<01:13,  2.60query/s]15:27:59 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:   5%|▌         | 10/200 [00:04<01:03,  2.98query/s]15:27:59 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:   6%|▌         | 11/200 [00:04<00:56,  3.33query/s]15:28:00 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:   6%|▌         | 12/200 [00:05<01:26,  2.17query/s]15:28:00 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:   6%|▋         | 13/200 [00:05<01:19,  2.36query/s]15:28:01 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:   7%|▋         | 14/200 [00:06<01:31,  2.03query/s]15:28:01 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:   8%|▊         | 15/200 [00:06<01:38,  1.87query/s]15:28:02 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:   8%|▊         | 16/200 [00:07<01:23,  2.19query/s]15:28:02 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:   8%|▊         | 17/200 [00:07<01:07,  2.70query/s]15:28:02 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:   9%|▉         | 18/200 [00:07<00:55,  3.25query/s]15:28:02 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  10%|▉         | 19/200 [00:07<00:56,  3.19query/s]15:28:03 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  10%|█         | 20/200 [00:07<00:49,  3.60query/s]15:28:03 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  10%|█         | 21/200 [00:08<00:43,  4.07query/s]15:28:03 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  11%|█         | 22/200 [00:08<00:46,  3.84query/s]15:28:04 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  12%|█▏        | 23/200 [00:09<01:07,  2.63query/s]15:28:04 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  12%|█▏        | 24/200 [00:09<01:29,  1.98query/s]15:28:05 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  12%|█▎        | 25/200 [00:10<01:14,  2.35query/s]15:28:05 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+15:28:05 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  14%|█▎        | 27/200 [00:10<00:58,  2.94query/s]15:28:05 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+15:28:06 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  14%|█▍        | 29/200 [00:11<00:56,  3.01query/s]15:28:06 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  15%|█▌        | 30/200 [00:11<00:54,  3.09query/s]15:28:06 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  16%|█▌        | 31/200 [00:11<00:49,  3.43query/s]15:28:07 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  16%|█▌        | 32/200 [00:12<00:57,  2.94query/s]15:28:07 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  16%|█▋        | 33/200 [00:12<01:04,  2.57query/s]15:28:08 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  17%|█▋        | 34/200 [00:13<01:03,  2.60query/s]15:28:09 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  18%|█▊        | 35/200 [00:14<02:04,  1.33query/s]15:28:10 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  18%|█▊        | 36/200 [00:15<01:53,  1.44query/s]15:28:11 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  18%|█▊        | 37/200 [00:16<01:59,  1.36query/s]15:28:11 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  19%|█▉        | 38/200 [00:16<01:50,  1.47query/s]15:28:12 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  20%|█▉        | 39/200 [00:17<01:53,  1.42query/s]15:28:12 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  20%|██        | 40/200 [00:17<01:32,  1.72query/s]15:28:13 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  20%|██        | 41/200 [00:18<01:49,  1.46query/s]15:28:14 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  21%|██        | 42/200 [00:19<01:38,  1.61query/s]15:28:14 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  22%|██▏       | 43/200 [00:19<01:29,  1.76query/s]15:28:14 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  22%|██▏       | 44/200 [00:19<01:15,  2.05query/s]15:28:16 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  22%|██▎       | 45/200 [00:20<01:42,  1.51query/s]15:28:16 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  23%|██▎       | 46/200 [00:21<01:21,  1.89query/s]15:28:16 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  24%|██▎       | 47/200 [00:21<01:05,  2.33query/s]15:28:16 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  24%|██▍       | 48/200 [00:21<00:58,  2.58query/s]15:28:17 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  24%|██▍       | 49/200 [00:21<00:53,  2.81query/s]15:28:17 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  25%|██▌       | 50/200 [00:22<01:03,  2.37query/s]15:28:17 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  26%|██▌       | 51/200 [00:22<00:55,  2.70query/s]15:28:18 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  26%|██▌       | 52/200 [00:23<01:09,  2.13query/s]15:28:18 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  26%|██▋       | 53/200 [00:23<00:56,  2.59query/s]15:28:19 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  27%|██▋       | 54/200 [00:24<01:17,  1.89query/s]15:28:20 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  28%|██▊       | 55/200 [00:25<01:36,  1.50query/s]15:28:20 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  28%|██▊       | 56/200 [00:25<01:20,  1.79query/s]15:28:21 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  28%|██▊       | 57/200 [00:26<01:36,  1.48query/s]15:28:22 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  29%|██▉       | 58/200 [00:27<01:16,  1.86query/s]15:28:22 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  30%|██▉       | 59/200 [00:27<01:14,  1.90query/s]15:28:23 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  30%|███       | 60/200 [00:28<01:12,  1.93query/s]15:28:23 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  30%|███       | 61/200 [00:28<01:02,  2.23query/s]15:28:23 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  31%|███       | 62/200 [00:28<00:56,  2.45query/s]15:28:24 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  32%|███▏      | 63/200 [00:29<01:09,  1.96query/s]15:28:24 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  32%|███▏      | 64/200 [00:29<01:11,  1.89query/s]15:28:25 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  32%|███▎      | 65/200 [00:30<01:10,  1.91query/s]15:28:25 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  33%|███▎      | 66/200 [00:30<00:57,  2.34query/s]15:28:26 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  34%|███▎      | 67/200 [00:31<00:59,  2.25query/s]15:28:26 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  34%|███▍      | 68/200 [00:31<00:52,  2.52query/s]15:28:27 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  34%|███▍      | 69/200 [00:32<01:11,  1.84query/s]15:28:28 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  35%|███▌      | 70/200 [00:33<01:30,  1.43query/s]15:28:29 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  36%|███▌      | 71/200 [00:33<01:26,  1.49query/s]15:28:29 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  36%|███▌      | 72/200 [00:34<01:08,  1.87query/s]15:28:29 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  36%|███▋      | 73/200 [00:34<00:52,  2.41query/s]15:28:30 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  37%|███▋      | 74/200 [00:35<01:34,  1.34query/s]15:28:31 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  38%|███▊      | 75/200 [00:36<01:34,  1.33query/s]15:28:32 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  38%|███▊      | 76/200 [00:37<01:21,  1.52query/s]15:28:32 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  38%|███▊      | 77/200 [00:37<01:17,  1.59query/s]15:28:32 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  39%|███▉      | 78/200 [00:37<01:00,  2.01query/s]15:28:33 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  40%|███▉      | 79/200 [00:38<00:52,  2.32query/s]15:28:33 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  40%|████      | 80/200 [00:38<00:55,  2.18query/s]15:28:34 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  40%|████      | 81/200 [00:39<00:59,  2.01query/s]15:28:34 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+15:28:34 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  42%|████▏     | 83/200 [00:39<00:45,  2.59query/s]15:28:35 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  42%|████▏     | 84/200 [00:40<00:53,  2.16query/s]15:28:36 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  42%|████▎     | 85/200 [00:41<00:59,  1.92query/s]15:28:36 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  43%|████▎     | 86/200 [00:41<00:50,  2.26query/s]15:28:36 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  44%|████▎     | 87/200 [00:41<00:51,  2.21query/s]15:28:37 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  44%|████▍     | 88/200 [00:42<00:53,  2.08query/s]15:28:37 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  44%|████▍     | 89/200 [00:42<00:55,  2.01query/s]15:28:38 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  45%|████▌     | 90/200 [00:43<00:50,  2.19query/s]15:28:38 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+15:28:38 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  46%|████▌     | 92/200 [00:43<00:33,  3.27query/s]15:28:38 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  46%|████▋     | 93/200 [00:43<00:30,  3.49query/s]15:28:39 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  47%|████▋     | 94/200 [00:44<00:43,  2.46query/s]15:28:40 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  48%|████▊     | 95/200 [00:45<00:53,  1.95query/s]15:28:40 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  48%|████▊     | 96/200 [00:45<00:45,  2.28query/s]15:28:40 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  48%|████▊     | 97/200 [00:45<00:42,  2.43query/s]15:28:41 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  49%|████▉     | 98/200 [00:46<00:40,  2.54query/s]15:28:41 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  50%|████▉     | 99/200 [00:46<00:35,  2.86query/s]15:28:42 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  50%|█████     | 100/200 [00:47<00:44,  2.25query/s]15:28:43 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  50%|█████     | 101/200 [00:48<00:56,  1.74query/s]15:28:43 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  51%|█████     | 102/200 [00:48<00:53,  1.84query/s]15:28:44 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  52%|█████▏    | 103/200 [00:49<00:57,  1.69query/s]15:28:44 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  52%|█████▏    | 104/200 [00:49<00:53,  1.78query/s]15:28:45 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  52%|█████▎    | 105/200 [00:50<00:47,  1.99query/s]15:28:45 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  53%|█████▎    | 106/200 [00:50<00:42,  2.21query/s]15:28:46 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  54%|█████▎    | 107/200 [00:51<00:53,  1.75query/s]15:28:46 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  54%|█████▍    | 108/200 [00:51<00:47,  1.92query/s]15:28:47 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  55%|█████▍    | 109/200 [00:52<00:51,  1.75query/s]15:28:48 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  55%|█████▌    | 110/200 [00:53<01:06,  1.35query/s]15:28:49 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  56%|█████▌    | 111/200 [00:54<01:03,  1.39query/s]15:28:49 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  56%|█████▌    | 112/200 [00:54<00:52,  1.67query/s]15:28:50 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  56%|█████▋    | 113/200 [00:55<00:59,  1.46query/s]15:28:51 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  57%|█████▋    | 114/200 [00:55<00:57,  1.49query/s]15:28:51 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  57%|█████▊    | 115/200 [00:56<00:47,  1.80query/s]15:28:51 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  58%|█████▊    | 116/200 [00:56<00:43,  1.95query/s]15:28:52 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  58%|█████▊    | 117/200 [00:56<00:36,  2.26query/s]15:28:52 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  59%|█████▉    | 118/200 [00:57<00:34,  2.41query/s]15:28:52 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  60%|█████▉    | 119/200 [00:57<00:31,  2.58query/s]15:28:53 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  60%|██████    | 120/200 [00:58<00:32,  2.43query/s]15:28:53 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  60%|██████    | 121/200 [00:58<00:30,  2.60query/s]15:28:53 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  61%|██████    | 122/200 [00:58<00:27,  2.80query/s]15:28:54 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  62%|██████▏   | 123/200 [00:59<00:43,  1.77query/s]15:28:55 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  62%|██████▏   | 124/200 [01:00<00:39,  1.93query/s]15:28:55 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  62%|██████▎   | 125/200 [01:00<00:43,  1.72query/s]15:28:56 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  63%|██████▎   | 126/200 [01:01<00:40,  1.82query/s]15:28:56 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  64%|██████▎   | 127/200 [01:01<00:37,  1.96query/s]15:28:57 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  64%|██████▍   | 128/200 [01:02<00:31,  2.26query/s]15:28:57 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  64%|██████▍   | 129/200 [01:02<00:36,  1.96query/s]15:28:58 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  65%|██████▌   | 130/200 [01:03<00:31,  2.25query/s]15:28:58 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  66%|██████▌   | 131/200 [01:03<00:31,  2.17query/s]15:28:58 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  66%|██████▌   | 132/200 [01:03<00:27,  2.52query/s]15:28:58 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  66%|██████▋   | 133/200 [01:03<00:21,  3.10query/s]15:28:59 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  67%|██████▋   | 134/200 [01:04<00:28,  2.34query/s]15:28:59 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  68%|██████▊   | 135/200 [01:04<00:24,  2.62query/s]15:29:00 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  68%|██████▊   | 136/200 [01:05<00:20,  3.11query/s]15:29:00 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  68%|██████▊   | 137/200 [01:05<00:20,  3.03query/s]15:29:01 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  69%|██████▉   | 138/200 [01:06<00:30,  2.01query/s]15:29:01 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  70%|██████▉   | 139/200 [01:06<00:28,  2.13query/s]15:29:02 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  70%|███████   | 140/200 [01:07<00:32,  1.85query/s]15:29:03 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  70%|███████   | 141/200 [01:08<00:34,  1.69query/s]15:29:04 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  71%|███████   | 142/200 [01:09<00:45,  1.28query/s]15:29:04 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  72%|███████▏  | 143/200 [01:09<00:36,  1.54query/s]15:29:05 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  72%|███████▏  | 144/200 [01:10<00:38,  1.46query/s]15:29:06 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  72%|███████▎  | 145/200 [01:11<00:39,  1.40query/s]15:29:07 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  73%|███████▎  | 146/200 [01:11<00:38,  1.40query/s]15:29:07 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  74%|███████▎  | 147/200 [01:12<00:30,  1.76query/s]15:29:07 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  74%|███████▍  | 148/200 [01:12<00:23,  2.19query/s]15:29:08 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  74%|███████▍  | 149/200 [01:13<00:30,  1.70query/s]15:29:08 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  75%|███████▌  | 150/200 [01:13<00:25,  1.93query/s]15:29:08 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  76%|███████▌  | 151/200 [01:13<00:21,  2.27query/s]15:29:09 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  76%|███████▌  | 152/200 [01:14<00:17,  2.81query/s]15:29:09 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  76%|███████▋  | 153/200 [01:14<00:14,  3.32query/s]15:29:09 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  77%|███████▋  | 154/200 [01:14<00:16,  2.73query/s]15:29:10 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  78%|███████▊  | 155/200 [01:15<00:16,  2.78query/s]15:29:10 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  78%|███████▊  | 156/200 [01:15<00:17,  2.44query/s]15:29:11 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  78%|███████▊  | 157/200 [01:16<00:24,  1.79query/s]15:29:12 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  79%|███████▉  | 158/200 [01:17<00:24,  1.68query/s]15:29:12 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  80%|███████▉  | 159/200 [01:17<00:23,  1.75query/s]15:29:13 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  80%|████████  | 160/200 [01:18<00:22,  1.78query/s]15:29:14 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  80%|████████  | 161/200 [01:18<00:24,  1.62query/s]15:29:14 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  81%|████████  | 162/200 [01:19<00:23,  1.62query/s]15:29:15 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  82%|████████▏ | 163/200 [01:20<00:21,  1.75query/s]15:29:15 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  82%|████████▏ | 164/200 [01:20<00:21,  1.67query/s]15:29:17 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  82%|████████▎ | 165/200 [01:22<00:28,  1.24query/s]15:29:17 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  83%|████████▎ | 166/200 [01:22<00:21,  1.56query/s]15:29:17 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  84%|████████▎ | 167/200 [01:22<00:21,  1.56query/s]15:29:18 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  84%|████████▍ | 168/200 [01:23<00:20,  1.58query/s]15:29:19 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  84%|████████▍ | 169/200 [01:24<00:18,  1.68query/s]15:29:19 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  85%|████████▌ | 170/200 [01:24<00:17,  1.71query/s]15:29:20 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  86%|████████▌ | 171/200 [01:24<00:15,  1.87query/s]15:29:21 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  86%|████████▌ | 172/200 [01:26<00:19,  1.41query/s]15:29:21 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  86%|████████▋ | 173/200 [01:26<00:15,  1.75query/s]15:29:22 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  87%|████████▋ | 174/200 [01:27<00:18,  1.43query/s]15:29:23 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  88%|████████▊ | 175/200 [01:28<00:20,  1.19query/s]15:29:23 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  88%|████████▊ | 176/200 [01:28<00:16,  1.43query/s]15:29:24 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  88%|████████▊ | 177/200 [01:29<00:13,  1.77query/s]15:29:24 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  89%|████████▉ | 178/200 [01:29<00:12,  1.83query/s]15:29:25 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  90%|████████▉ | 179/200 [01:29<00:10,  2.06query/s]15:29:25 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  90%|█████████ | 180/200 [01:30<00:10,  1.91query/s]15:29:26 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  90%|█████████ | 181/200 [01:31<00:11,  1.67query/s]15:29:27 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  91%|█████████ | 182/200 [01:32<00:10,  1.65query/s]15:29:27 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  92%|█████████▏| 183/200 [01:32<00:09,  1.85query/s]15:29:28 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  92%|█████████▏| 184/200 [01:33<00:10,  1.52query/s]15:29:28 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  92%|█████████▎| 185/200 [01:33<00:09,  1.58query/s]15:29:29 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  93%|█████████▎| 186/200 [01:34<00:07,  1.86query/s]15:29:30 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  94%|█████████▎| 187/200 [01:34<00:07,  1.64query/s]15:29:30 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  94%|█████████▍| 188/200 [01:35<00:07,  1.70query/s]15:29:31 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  94%|█████████▍| 189/200 [01:36<00:06,  1.67query/s]15:29:31 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  95%|█████████▌| 190/200 [01:36<00:05,  1.68query/s]15:29:32 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  96%|█████████▌| 191/200 [01:37<00:04,  1.94query/s]15:29:32 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  96%|█████████▌| 192/200 [01:37<00:03,  2.07query/s]15:29:33 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  96%|█████████▋| 193/200 [01:38<00:03,  1.96query/s]15:29:33 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  97%|█████████▋| 194/200 [01:38<00:02,  2.42query/s]15:29:33 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  98%|█████████▊| 195/200 [01:38<00:02,  2.04query/s]15:29:34 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  98%|█████████▊| 196/200 [01:39<00:02,  1.70query/s]15:29:35 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  98%|█████████▊| 197/200 [01:40<00:01,  1.82query/s]15:29:35 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]:  99%|█████████▉| 198/200 [01:40<00:01,  1.66query/s]15:29:36 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]: 100%|█████████▉| 199/200 [01:41<00:00,  1.68query/s]15:29:36 [INFO] HTTP Request: POST http://localhost:8000/v1/chat/completions "HTTP/1.1 200 OK"
+[no_rag]: 100%|██████████| 200/200 [01:41<00:00,  1.89query/s][no_rag]: 100%|██████████| 200/200 [01:41<00:00,  1.96query/s]
+15:29:36 [INFO] [Step 3] 推理完成: 200 条，失败 0 条，耗时 101.9s (0.51s/query)
+15:29:36 [INFO] [Step 4] 结果已保存: /data/zhaoyaoxi/rag_project/results/no_rag_dev_20260404_152936.csv  (200 行 × 5 列)
+15:29:36 [INFO]   有效回答率: 200/200 (100.0%)
+15:29:36 [INFO]   平均回答长度: 26 词
+
+结果文件: /data/zhaoyaoxi/rag_project/results/no_rag_dev_20260404_152936.csv
+下一步评估: python evaluate.py --input /data/zhaoyaoxi/rag_project/results/no_rag_dev_20260404_152936.csv
