@@ -10,8 +10,11 @@ import os
 HF_ENDPOINT  = "https://hf-mirror.com"
 HF_CACHE_DIR = "/data/zhaoyaoxi/huggingface_cache"
 
+CUDA_VISIBLE_DEVICES = "1"       # 指定使用的 GPU 编号
+
 os.environ["HF_ENDPOINT"]         = HF_ENDPOINT
 os.environ["HUGGINGFACE_HUB_URL"] = HF_ENDPOINT
+os.environ["CUDA_VISIBLE_DEVICES"] = CUDA_VISIBLE_DEVICES
 
 # ──────────────────────────────────────────────────────────
 # 路径

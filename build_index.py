@@ -21,7 +21,7 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import config as cfg  # noqa: E402 — 须最先导入，触发 HF 镜像设置
 
-from data.loader import chunk_corpus, load_corpus
+from data.loader import chunk_corpus, load_corpus, load_corpus_with_guaranteed_hits
 from rag.retriever import Retriever
 
 logger = logging.getLogger(__name__)
@@ -69,7 +69,10 @@ def build_index(mode: str = "dev", force: bool = False) -> Retriever:
     # ── 加载语料库并切块 ──────────────────────────────────────
     t0 = time.time()
     logger.info(f"[BuildIndex] 加载语料库（{num_docs:,} 篇）…")
-    corpus = load_corpus(num_docs=num_docs)
+    if mode == "eval":
+        corpus = load_corpus_with_guaranteed_hits(num_docs=num_docs, num_queries=cfg.EVAL_QUERY_NUM)
+    else:
+        corpus = load_corpus(num_docs=num_docs)
     chunks = chunk_corpus(corpus)
     logger.info(
         f"[BuildIndex] 语料库就绪: {len(corpus):,} 篇 → {len(chunks):,} chunks "
