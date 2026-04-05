@@ -27,5 +27,7 @@ results/*
 !results/.gitkeep
 
 # 6. 数据集 (建议：取消注释以忽略庞大的原始数据)
-data/*
+data/*.jsonl
+data/*.gz
+data/*.tsv
 !data/.gitkeep
