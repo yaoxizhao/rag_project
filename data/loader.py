@@ -185,31 +185,26 @@ def chunk_text(
 # 语料库加载
 # ──────────────────────────────────────────────────────────
 
-def load_corpus(num_docs: int = cfg.DEV_CORPUS_NUM) -> dict[str, dict]:
+def load_corpus(num_docs=cfg.DEV_CORPUS_NUM) -> dict[str, dict]:
     """
-    从 BeIR/NQ corpus.jsonl 中随机采样固定子集（蓄水池算法）。
-
-    Args:
-        num_docs: 采样文档数，默认 DEV_CORPUS_NUM=10_000
-
-    Returns:
-        dict: {doc_id: {"title": str, "text": str}}
+    从 corpus.jsonl 加载文档。num_docs=None 时加载全量。
     """
     corpus_file = _corpus_file()
-    logger.info(f"[Corpus] 蓄水池采样 {num_docs:,} 篇（seed={cfg.RANDOM_SEED}）…")
     logger.info(f"[Corpus] 来源: {corpus_file}")
 
-    sampled = _reservoir_sample_jsonl(corpus_file, num_docs, cfg.RANDOM_SEED)
+    if num_docs is None:
+        with open(corpus_file, encoding="utf-8") as f:
+            rows = [json.loads(line) for line in f if line.strip()]
+        logger.info(f"[Corpus] 全量加载: {len(rows):,} 篇")
+    else:
+        logger.info(f"[Corpus] 蓄水池采样 {num_docs:,} 篇（seed={cfg.RANDOM_SEED}）…")
+        rows = _reservoir_sample_jsonl(corpus_file, num_docs, cfg.RANDOM_SEED)
+        logger.info(f"[Corpus] 采样完成: {len(rows):,} 篇")
 
-    corpus = {
-        row["_id"]: {
-            "title": row.get("title", ""),
-            "text":  row["text"],
-        }
-        for row in sampled
+    return {
+        row["_id"]: {"title": row.get("title", ""), "text": row["text"]}
+        for row in rows
     }
-    logger.info(f"[Corpus] 采样完成: {len(corpus):,} 篇")
-    return corpus
 
 
 # ──────────────────────────────────────────────────────────
@@ -256,6 +251,13 @@ def load_corpus_with_guaranteed_hits(
                 candidates.append((row["_id"], doc))
 
     logger.info(f"[Corpus] 命中 relevant docs: {len(guaranteed)}/{len(required_ids)}")
+
+    if num_docs is None:
+        corpus = dict(guaranteed)
+        for doc_id, doc in candidates:
+            corpus[doc_id] = doc
+        logger.info(f"[Corpus] 全量语料库: {len(corpus):,} 篇")
+        return corpus
 
     if len(guaranteed) >= num_docs:
         logger.warning(

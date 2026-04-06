@@ -27,9 +27,10 @@ from rag.retriever import Retriever
 logger = logging.getLogger(__name__)
 
 # 实验模式 → (ChromaDB 集合名, 语料库文档数)
+_dataset_slug = cfg.DATASET_NAME.split("/")[-1]  # e.g. "BeIR/fiqa" -> "fiqa"
 MODE_CONFIG = {
-    "dev":  ("nq_dev",  cfg.DEV_CORPUS_NUM),
-    "eval": ("nq_eval", cfg.EVAL_CORPUS_NUM),
+    "dev":  (f"{_dataset_slug}_dev",  cfg.DEV_CORPUS_NUM),
+    "eval": (f"{_dataset_slug}_eval", cfg.EVAL_CORPUS_NUM),
 }
 
 
@@ -49,7 +50,7 @@ def build_index(mode: str = "dev", force: bool = False) -> Retriever:
 
     collection_name, num_docs = MODE_CONFIG[mode]
     logger.info(
-        f"[BuildIndex] 模式={mode} | 目标文档数={num_docs:,} | "
+        f"[BuildIndex] 模式={mode} | 目标文档数={num_docs if num_docs is None else f'{num_docs:,}'} | "
         f"集合={collection_name} | force={force}"
     )
 
@@ -66,23 +67,29 @@ def build_index(mode: str = "dev", force: bool = False) -> Retriever:
         )
         return retriever
 
-    # ── 加载语料库并切块 ──────────────────────────────────────
+    # ── 加载语料库并分批切块写入 ──────────────────────────────
+    CORPUS_BATCH = 5000
     t0 = time.time()
-    logger.info(f"[BuildIndex] 加载语料库（{num_docs:,} 篇）…")
+    logger.info(f"[BuildIndex] 加载语料库（{num_docs if num_docs is None else f'{num_docs:,}'} 篇）…")
     if mode == "eval":
         corpus = load_corpus_with_guaranteed_hits(num_docs=num_docs, num_queries=cfg.EVAL_QUERY_NUM)
     else:
         corpus = load_corpus(num_docs=num_docs)
-    chunks = chunk_corpus(corpus)
-    logger.info(
-        f"[BuildIndex] 语料库就绪: {len(corpus):,} 篇 → {len(chunks):,} chunks "
-        f"（耗时 {time.time() - t0:.1f}s）"
-    )
 
-    # ── 写入 ChromaDB ─────────────────────────────────────────
-    t1 = time.time()
-    retriever.add(chunks)
-    logger.info(f"[BuildIndex] 索引写入完成，耗时 {time.time() - t1:.1f}s")
+    doc_items = list(corpus.items())
+    del corpus
+    logger.info(f"[BuildIndex] 共 {len(doc_items):,} 篇，分批切块写入（batch={CORPUS_BATCH}）…")
+
+    total_chunks = 0
+    for i in range(0, len(doc_items), CORPUS_BATCH):
+        batch_corpus = dict(doc_items[i : i + CORPUS_BATCH])
+        chunks = chunk_corpus(batch_corpus)
+        retriever.add(chunks)
+        total_chunks += len(chunks)
+        logger.info(f"[BuildIndex] {min(i + CORPUS_BATCH, len(doc_items)):,}/{len(doc_items):,} 篇，累计 {total_chunks:,} chunks")
+        del batch_corpus, chunks
+
+    logger.info(f"[BuildIndex] 索引写入完成，共 {total_chunks:,} chunks，耗时 {time.time() - t0:.1f}s")
 
     return retriever
 

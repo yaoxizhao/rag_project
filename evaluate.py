@@ -154,9 +154,10 @@ def _print_summary(scores: dict, csv_path: str, n: int) -> None:
     SEP = "=" * 50
     METRIC_LABELS = {
         "faithfulness":       "Faithfulness       (幻觉↓)",
-        "answer_relevancy":   "Answer Relevancy   (相关性)",
+        "answer_correctness": "Answer Correctness (准确性)",
         "context_recall":     "Context Recall     (覆盖率)",
         "context_precision":  "Context Precision  (精确率)",
+        "abstention_rate":    "Abstention Rate    (拒答率)",
     }
     print(f"\n{SEP}")
     print(f"  Ragas 评估结果")

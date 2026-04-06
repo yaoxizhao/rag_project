@@ -98,22 +98,12 @@ class Retriever:
             logger.warning("[Retriever.add] chunks 为空，跳过")
             return
 
-        existing_count = self._collection.count()
-
-        # 全量已存在 → 跳过
-        if existing_count >= len(chunks):
-            logger.info(
-                f"[Retriever.add] 集合已有 {existing_count} 条（≥ {len(chunks)}），跳过"
-            )
+        # 过滤已存在的 chunk_id（支持断点续传和分批写入）
+        existing_ids = set(self._collection.get(include=[])["ids"]) if self._collection.count() > 0 else set()
+        new_chunks = [c for c in chunks if c["chunk_id"] not in existing_ids]
+        if not new_chunks:
+            logger.info("[Retriever.add] 所有 chunks 已存在，跳过")
             return
-
-        # 断点续传：找出尚未写入的 chunk_id
-        if existing_count > 0:
-            logger.info(f"[Retriever.add] 检测到部分索引（{existing_count} 条），续传 …")
-            existing_ids = set(self._collection.get(include=[])["ids"])
-            new_chunks = [c for c in chunks if c["chunk_id"] not in existing_ids]
-        else:
-            new_chunks = chunks
 
         logger.info(f"[Retriever.add] 待写入: {len(new_chunks)} chunks …")
 

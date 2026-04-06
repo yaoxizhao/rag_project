@@ -20,7 +20,7 @@ if os.path.isfile(_env_path):
 HF_ENDPOINT  = "https://hf-mirror.com"
 HF_CACHE_DIR = "/data/zhaoyaoxi/huggingface_cache"
 
-CUDA_VISIBLE_DEVICES = "7"       # 指定使用的 GPU 编号（bge-m3 及 Embedding 相关）
+CUDA_VISIBLE_DEVICES = "2"       # 指定使用的 GPU 编号（bge-m3 及 Embedding 相关）
 EMBED_GPU = "cuda:0"             # torch 内部设备号（CUDA_VISIBLE_DEVICES 映射后始终为 cuda:0）
 
 os.environ["HF_ENDPOINT"]         = HF_ENDPOINT
@@ -38,7 +38,7 @@ RESULTS_DIR  = os.path.join(PROJECT_ROOT, "results")
 # 嵌入模型
 # ──────────────────────────────────────────────────────────
 EMBED_MODEL      = "BAAI/bge-m3"
-EMBED_BATCH_SIZE = 64          # 单次编码批大小（RTX 3090 显存适配）
+EMBED_BATCH_SIZE = 128          # 单次编码批大小（RTX 3090 显存适配）
 
 # ──────────────────────────────────────────────────────────
 # 生成模型（vLLM OpenAI 兼容接口）
@@ -65,18 +65,18 @@ CHUNK_OVERLAP = 32             # words overlap between adjacent chunks
 # 数据集与采样
 # ──────────────────────────────────────────────────────────
 RANDOM_SEED  = 42
-DATASET_NAME = "BeIR/nq"
-QRELS_NAME   = "BeIR/nq-qrels"
+DATASET_NAME = "BeIR/fiqa"
+QRELS_NAME   = "BeIR/fiqa-qrels"
 
-DEV_QUERY_NUM  = 200           # 开发/调试阶段
-DEV_CORPUS_NUM = 10_000
+DEV_QUERY_NUM  = 20           # 开发/调试阶段
+DEV_CORPUS_NUM = 10_0
 
 EVAL_QUERY_NUM  = 500          # 论文正式评测
-EVAL_CORPUS_NUM = 50_000
+EVAL_CORPUS_NUM = None         # fiqa corpus 共 57,600 条，全量加载
 
 # ──────────────────────────────────────────────────────────
 # Ragas / LLM Judge（GLM-4-Flash，免费）
 # ──────────────────────────────────────────────────────────
 GLM_API_KEY   = os.environ.get("GLM_API_KEY", "")
 GLM_BASE_URL  = "https://open.bigmodel.cn/api/paas/v4"
-GLM_MODEL     = "glm-4.7-flash"
+GLM_MODEL     = "glm-4-flash"

@@ -45,9 +45,10 @@ from rag.retriever import Retriever
 logger = logging.getLogger(__name__)
 
 # dataset 模式 → (query 数量, ChromaDB 集合名)
+_dataset_slug = cfg.DATASET_NAME.split("/")[-1]
 DATASET_CONFIG = {
-    "dev":  (cfg.DEV_QUERY_NUM,  "nq_dev"),
-    "eval": (cfg.EVAL_QUERY_NUM, "nq_eval"),
+    "dev":  (cfg.DEV_QUERY_NUM,  f"{_dataset_slug}_dev"),
+    "eval": (cfg.EVAL_QUERY_NUM, f"{_dataset_slug}_eval"),
 }
 
 

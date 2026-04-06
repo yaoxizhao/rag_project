@@ -1,11 +1,12 @@
 """
 evaluation/metrics.py — Ragas 0.4.x 评估指标封装
 
-使用 GLM-4-Flash API 作为 LLM Judge，计算四项 RAG 核心指标：
+使用 GLM-4-Flash API 作为 LLM Judge，计算五项 RAG 核心指标：
     faithfulness       — 回答是否忠实于检索上下文（核心幻觉指标）
-    answer_relevancy   — 回答与问题的相关性
+    answer_correctness — 回答与 ground truth 的准确性
     context_recall     — 上下文对 ground truth 的覆盖率
     context_precision  — 上下文中相关段落的精确率
+    abstention_rate    — 模型在无证据时的拒答率（基于规则，无需 API）
 
 公开接口：
     build_ragas_llm()                  -> LangchainLLMWrapper
@@ -13,13 +14,13 @@ evaluation/metrics.py — Ragas 0.4.x 评估指标封装
     evaluate_rag(records, llm, emb)    -> dict[metric_name, score]
 
 说明：
-    no_rag 模式（retrieved_contexts 为空列表）仅计算 answer_relevancy，
+    no_rag 模式（retrieved_contexts 为空列表）仅计算 answer_correctness 和 abstention_rate，
     其余三项指标需要上下文，自动跳过。
 
 注意（Ragas 0.4.x）：
     evaluate() 只接受 ragas.metrics.base.Metric 子类（旧式 API）。
     使用 ragas.metrics._faithfulness 等私有模块，不使用 ragas.metrics.collections。
-    AnswerRelevancy 须设 strictness=1，否则报 n>1 不支持的错误。
+    AnswerCorrectness 须设 strictness=1，否则报 n>1 不支持的错误。
 """
 import logging
 import os
@@ -29,6 +30,23 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config as cfg  # noqa: E402
 
 logger = logging.getLogger(__name__)
+
+# 拒答关键词（英文，NQ 数据集场景）
+_ABSTENTION_PATTERNS = [
+    "i don't know", "i do not know", "not mentioned", "not provided",
+    "cannot find", "no information", "not enough information",
+    "the context does not", "the provided context does not",
+    "based on the provided", "i cannot answer",
+]
+
+
+def _compute_abstention_rate(records: list[dict]) -> float:
+    """基于关键词规则计算拒答率，无需 API 调用。"""
+    count = sum(
+        1 for r in records
+        if any(p in r["answer"].lower() for p in _ABSTENTION_PATTERNS)
+    )
+    return count / len(records) if records else 0.0
 
 
 def build_ragas_llm():
@@ -99,10 +117,11 @@ def evaluate_rag(
         dict: {metric_name: float}，含 NaN 的指标表示不适用
     """
     from ragas import EvaluationDataset, SingleTurnSample, evaluate
-    from ragas.metrics._answer_relevance import AnswerRelevancy
+    from ragas.metrics._answer_correctness import AnswerCorrectness
     from ragas.metrics._context_precision import ContextPrecision
     from ragas.metrics._context_recall import ContextRecall
     from ragas.metrics._faithfulness import Faithfulness
+    from ragas.run_config import RunConfig
 
     if ragas_llm is None:
         ragas_llm = build_ragas_llm()
@@ -115,14 +134,14 @@ def evaluate_rag(
     if has_contexts:
         metrics = [
             Faithfulness(llm=ragas_llm),
-            AnswerRelevancy(llm=ragas_llm, embeddings=ragas_embeddings, strictness=1),
+            AnswerCorrectness(llm=ragas_llm, embeddings=ragas_embeddings),
             ContextRecall(llm=ragas_llm),
             ContextPrecision(llm=ragas_llm),
         ]
-        logger.info("[Ragas] 指标: faithfulness + answer_relevancy + context_recall + context_precision")
+        logger.info("[Ragas] 指标: faithfulness + answer_correctness + context_recall + context_precision")
     else:
-        metrics = [AnswerRelevancy(llm=ragas_llm, embeddings=ragas_embeddings, strictness=1)]
-        logger.info("[Ragas] no_rag 模式，仅计算: answer_relevancy")
+        metrics = [AnswerCorrectness(llm=ragas_llm, embeddings=ragas_embeddings)]
+        logger.info("[Ragas] no_rag 模式，仅计算: answer_correctness")
 
     # ── 构建 EvaluationDataset ─────────────────────────────────
     samples = []
@@ -143,6 +162,7 @@ def evaluate_rag(
     logger.info(f"[Ragas] 开始评估 {len(samples)} 条样本 …")
 
     # ── 执行评估 ───────────────────────────────────────────────
+    run_config = RunConfig(max_workers=32, timeout=120, max_retries=10)
     result = evaluate(
         dataset,
         metrics=metrics,
@@ -150,6 +170,7 @@ def evaluate_rag(
         embeddings=ragas_embeddings,
         raise_exceptions=False,
         show_progress=True,
+        run_config=run_config,
     )
 
     # ── 提取得分 ───────────────────────────────────────────────
@@ -163,4 +184,5 @@ def evaluate_rag(
             scores[col] = float("nan")
 
     logger.info(f"[Ragas] 评估完成: {scores}")
+    scores["abstention_rate"] = _compute_abstention_rate(records)
     return scores
