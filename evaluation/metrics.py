@@ -1,7 +1,7 @@
 """
 evaluation/metrics.py — Ragas 0.4.x 评估指标封装
 
-使用 DeepSeek API 作为 LLM Judge，计算四项 RAG 核心指标：
+使用 GLM-4-Flash API 作为 LLM Judge，计算四项 RAG 核心指标：
     faithfulness       — 回答是否忠实于检索上下文（核心幻觉指标）
     answer_relevancy   — 回答与问题的相关性
     context_recall     — 上下文对 ground truth 的覆盖率
@@ -19,7 +19,7 @@ evaluation/metrics.py — Ragas 0.4.x 评估指标封装
 注意（Ragas 0.4.x）：
     evaluate() 只接受 ragas.metrics.base.Metric 子类（旧式 API）。
     使用 ragas.metrics._faithfulness 等私有模块，不使用 ragas.metrics.collections。
-    AnswerRelevancy 须设 strictness=1，否则 DeepSeek 报 n>1 不支持的错误。
+    AnswerRelevancy 须设 strictness=1，否则报 n>1 不支持的错误。
 """
 import logging
 import os
@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 def build_ragas_llm():
     """
-    构建以 DeepSeek 为后端的 Ragas LLM Judge（LangchainLLMWrapper）。
+    构建以 GLM-4-Flash 为后端的 Ragas LLM Judge（LangchainLLMWrapper）。
 
     Returns:
         LangchainLLMWrapper 实例
@@ -41,19 +41,19 @@ def build_ragas_llm():
     from langchain_openai import ChatOpenAI
     from ragas.llms import LangchainLLMWrapper
 
-    if not cfg.DEEPSEEK_API_KEY:
+    if not cfg.GLM_API_KEY:
         raise EnvironmentError(
-            "未设置 DEEPSEEK_API_KEY 环境变量。\n"
-            "请先: export DEEPSEEK_API_KEY='sk-...'"
+            "未设置 GLM_API_KEY 环境变量。\n"
+            "请在 .env 文件中添加: GLM_API_KEY=your_key"
         )
 
     lc_llm = ChatOpenAI(
-        model=cfg.DEEPSEEK_MODEL,
-        api_key=cfg.DEEPSEEK_API_KEY,
-        base_url=cfg.DEEPSEEK_BASE_URL,
+        model=cfg.GLM_MODEL,
+        api_key=cfg.GLM_API_KEY,
+        base_url=cfg.GLM_BASE_URL,
         temperature=0,
     )
-    logger.info(f"[Ragas] LLM Judge: {cfg.DEEPSEEK_MODEL} @ {cfg.DEEPSEEK_BASE_URL}")
+    logger.info(f"[Ragas] LLM Judge: {cfg.GLM_MODEL} @ {cfg.GLM_BASE_URL}")
     return LangchainLLMWrapper(lc_llm)
 
 
@@ -70,6 +70,7 @@ def build_ragas_embeddings():
     lc_emb = HuggingFaceEmbeddings(
         model_name=cfg.EMBED_MODEL,
         cache_folder=cfg.HF_CACHE_DIR,
+        model_kwargs={"device": cfg.EMBED_GPU},
     )
     logger.info(f"[Ragas] Embeddings: {cfg.EMBED_MODEL} (local)")
     return LangchainEmbeddingsWrapper(lc_emb)

@@ -25,8 +25,9 @@ import config as cfg  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
-# 本地缓存目录（与 HuggingFace 缓存并列，避免污染）
-_BEIR_NQ_DIR = os.path.join(cfg.HF_CACHE_DIR, "beir_nq")
+# 本地缓存目录：按数据集名称隔离，切换数据集只需改 config.DATASET_NAME
+_dataset_slug = cfg.DATASET_NAME.replace("/", "_").lower()  # e.g. "beir_nq"
+_DATASET_DIR  = os.path.join(cfg.HF_CACHE_DIR, _dataset_slug)
 
 
 # ──────────────────────────────────────────────────────────
@@ -58,20 +59,20 @@ def _hf_download(repo_id: str, filename: str, local_path: str) -> None:
     logger.info(f"[HF] 下载完成: {local_path}")
 
 
-def _ensure_beir_nq() -> str:
+def _ensure_dataset() -> str:
     """
-    确保 BeIR/NQ 三个核心文件已下载并解压到 _BEIR_NQ_DIR：
-        corpus.jsonl      — 来自 BeIR/nq :: corpus.jsonl.gz
-        queries.jsonl     — 来自 BeIR/nq :: queries.jsonl.gz
-        qrels/test.tsv    — 来自 BeIR/nq-qrels :: test.tsv
-    下载仅执行一次，后续使用本地缓存。
+    确保当前数据集（cfg.DATASET_NAME）的三个核心文件已下载并解压：
+        corpus.jsonl      — 来自 cfg.DATASET_NAME :: corpus.jsonl.gz
+        queries.jsonl     — 来自 cfg.DATASET_NAME :: queries.jsonl.gz
+        qrels/test.tsv    — 来自 cfg.QRELS_NAME   :: test.tsv
+    切换数据集只需修改 config.py 中的 DATASET_NAME 和 QRELS_NAME。
     """
-    os.makedirs(_BEIR_NQ_DIR, exist_ok=True)
-    qrels_dir = os.path.join(_BEIR_NQ_DIR, "qrels")
+    os.makedirs(_DATASET_DIR, exist_ok=True)
+    qrels_dir = os.path.join(_DATASET_DIR, "qrels")
     os.makedirs(qrels_dir, exist_ok=True)
 
-    corpus_jsonl  = os.path.join(_BEIR_NQ_DIR, "corpus.jsonl")
-    queries_jsonl = os.path.join(_BEIR_NQ_DIR, "queries.jsonl")
+    corpus_jsonl  = os.path.join(_DATASET_DIR, "corpus.jsonl")
+    queries_jsonl = os.path.join(_DATASET_DIR, "queries.jsonl")
     qrels_tsv     = os.path.join(qrels_dir, "test.tsv")
 
     def _download_and_decompress(repo_id: str, gz_filename: str, out_jsonl: str):
@@ -86,28 +87,28 @@ def _ensure_beir_nq() -> str:
 
     # corpus
     if not os.path.isfile(corpus_jsonl):
-        _download_and_decompress("BeIR/nq", "corpus.jsonl.gz", corpus_jsonl)
+        _download_and_decompress(cfg.DATASET_NAME, "corpus.jsonl.gz", corpus_jsonl)
     else:
         logger.info(f"[Cache] corpus.jsonl 已存在，跳过下载")
 
     # queries
     if not os.path.isfile(queries_jsonl):
-        _download_and_decompress("BeIR/nq", "queries.jsonl.gz", queries_jsonl)
+        _download_and_decompress(cfg.DATASET_NAME, "queries.jsonl.gz", queries_jsonl)
     else:
         logger.info(f"[Cache] queries.jsonl 已存在，跳过下载")
 
     # qrels (plain TSV, not gzipped)
     if not os.path.isfile(qrels_tsv):
-        _hf_download("BeIR/nq-qrels", "test.tsv", qrels_tsv)
+        _hf_download(cfg.QRELS_NAME, "test.tsv", qrels_tsv)
     else:
         logger.info(f"[Cache] qrels/test.tsv 已存在，跳过下载")
 
-    return _BEIR_NQ_DIR
+    return _DATASET_DIR
 
 
-def _nq_corpus_file()  -> str: return os.path.join(_ensure_beir_nq(), "corpus.jsonl")
-def _nq_queries_file() -> str: return os.path.join(_ensure_beir_nq(), "queries.jsonl")
-def _nq_qrels_file()   -> str: return os.path.join(_ensure_beir_nq(), "qrels", "test.tsv")
+def _corpus_file()  -> str: return os.path.join(_ensure_dataset(), "corpus.jsonl")
+def _queries_file() -> str: return os.path.join(_ensure_dataset(), "queries.jsonl")
+def _qrels_file()   -> str: return os.path.join(_ensure_dataset(), "qrels", "test.tsv")
 
 
 # ──────────────────────────────────────────────────────────
@@ -194,7 +195,7 @@ def load_corpus(num_docs: int = cfg.DEV_CORPUS_NUM) -> dict[str, dict]:
     Returns:
         dict: {doc_id: {"title": str, "text": str}}
     """
-    corpus_file = _nq_corpus_file()
+    corpus_file = _corpus_file()
     logger.info(f"[Corpus] 蓄水池采样 {num_docs:,} 篇（seed={cfg.RANDOM_SEED}）…")
     logger.info(f"[Corpus] 来源: {corpus_file}")
 
@@ -238,7 +239,7 @@ def load_corpus_with_guaranteed_hits(
     logger.info(f"[Corpus] 需保证覆盖的 relevant docs: {len(required_ids)} 篇")
 
     # 2. 流式扫描 corpus.jsonl，分离 required 和 candidate
-    corpus_file = _nq_corpus_file()
+    corpus_file = _corpus_file()
     guaranteed: dict[str, dict] = {}
     candidates: list[dict] = []  # 非 relevant 的文档，用于随机填充
 
@@ -256,12 +257,13 @@ def load_corpus_with_guaranteed_hits(
 
     logger.info(f"[Corpus] 命中 relevant docs: {len(guaranteed)}/{len(required_ids)}")
 
-    if len(guaranteed) > num_docs:
+    if len(guaranteed) >= num_docs:
         logger.warning(
-            f"[Corpus] relevant docs ({len(guaranteed)}) 超过 num_docs ({num_docs})，"
-            "仅保留 relevant docs"
+            f"[Corpus] relevant docs ({len(guaranteed)}) >= num_docs ({num_docs})，"
+            "随机截取 num_docs 篇"
         )
-        return guaranteed
+        sampled_ids = random.Random(cfg.RANDOM_SEED).sample(list(guaranteed.keys()), num_docs)
+        return {k: guaranteed[k] for k in sampled_ids}
 
     # 3. 随机采样填充
     fill_count = num_docs - len(guaranteed)
@@ -325,7 +327,7 @@ def load_queries_with_qrels(num_queries: int = cfg.DEV_QUERY_NUM) -> list[dict]:
             relevant_doc_ids— 所有相关文档 ID 列表
     """
     # 1. 读取 qrels（仅保留正相关，score > 0）
-    qrels_file = _nq_qrels_file()
+    qrels_file = _qrels_file()
     logger.info(f"[Qrels] 读取 {qrels_file} …")
     qid_to_cids: dict[str, list[str]] = {}
     with open(qrels_file, encoding="utf-8") as f:
@@ -341,7 +343,7 @@ def load_queries_with_qrels(num_queries: int = cfg.DEV_QUERY_NUM) -> list[dict]:
     logger.info(f"[Qrels] 正相关条目 query 数: {len(qid_to_cids):,}")
 
     # 2. 读取 queries
-    queries_file = _nq_queries_file()
+    queries_file = _queries_file()
     logger.info(f"[Queries] 读取 {queries_file} …")
     qid_to_question: dict[str, str] = {}
     with open(queries_file, encoding="utf-8") as f:
@@ -368,7 +370,7 @@ def load_queries_with_qrels(num_queries: int = cfg.DEV_QUERY_NUM) -> list[dict]:
     )
 
     # 5. 流式扫描 corpus.jsonl，找到 needed_cids（找齐后提前退出）
-    corpus_file = _nq_corpus_file()
+    corpus_file = _corpus_file()
     cid_to_text: dict[str, str] = {}
     with open(corpus_file, encoding="utf-8") as f:
         for line in f:

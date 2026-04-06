@@ -134,13 +134,16 @@ def run_experiment(
             answer = ""
             errors += 1
 
-        results.append({
+        result = {
             "query_id":     qid,
             "question":     question,
             "answer":       answer,
-            "contexts":     json.dumps(contexts, ensure_ascii=False),  # JSON 字符串
             "ground_truth": gt,
-        })
+        }
+        # contexts 存为独立列 context_0 / context_1 / ...（避免 CSV 内嵌 JSON）
+        for i, ctx in enumerate(contexts):
+            result[f"context_{i}"] = ctx
+        results.append(result)
 
     elapsed = time.time() - t_start
     logger.info(
@@ -150,10 +153,12 @@ def run_experiment(
     )
 
     # ── 4. 保存 CSV ───────────────────────────────────────────
-    os.makedirs(cfg.RESULTS_DIR, exist_ok=True)
-    ts        = datetime.now().strftime("%Y%m%d_%H%M%S")
+    ts       = datetime.now().strftime("%Y%m%d_%H%M%S")
+    date_str = datetime.now().strftime("%Y%m%d")
+    run_dir  = os.path.join(cfg.RESULTS_DIR, f"run_{date_str}", mode)
+    os.makedirs(run_dir, exist_ok=True)
     filename  = f"{mode}_{dataset}_{ts}.csv"
-    out_path  = os.path.join(cfg.RESULTS_DIR, filename)
+    out_path  = os.path.join(run_dir, filename)
 
     df = pd.DataFrame(results)
     df.to_csv(out_path, index=False, encoding="utf-8")
@@ -164,8 +169,8 @@ def run_experiment(
     logger.info(f"  有效回答率: {len(answered)}/{len(df)} ({100*len(answered)/len(df):.1f}%)")
     logger.info(f"  平均回答长度: {df['answer'].str.split().apply(len).mean():.0f} 词")
     if mode == "naive_rag":
-        ctx_counts = df["contexts"].apply(lambda x: len(json.loads(x)))
-        logger.info(f"  平均检索段落数: {ctx_counts.mean():.1f}")
+        ctx_cols = [c for c in df.columns if c.startswith("context_")]
+        logger.info(f"  平均检索段落数: {len(ctx_cols)}")
 
     return out_path
 

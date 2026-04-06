@@ -52,7 +52,7 @@ class Retriever:
         # ── Embedding 模型 ──────────────────────────────────────
         logger.info(f"[Retriever] 加载 Embedding 模型: {cfg.EMBED_MODEL} …")
         import torch
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        device = cfg.EMBED_GPU if torch.cuda.is_available() else "cpu"
         self._model = SentenceTransformer(
             cfg.EMBED_MODEL,
             cache_folder=cfg.HF_CACHE_DIR,

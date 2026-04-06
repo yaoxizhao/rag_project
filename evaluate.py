@@ -19,6 +19,7 @@ evaluate.py — Ragas 评估入口
 import argparse
 import json
 import logging
+import math
 import os
 import sys
 from datetime import datetime
@@ -41,6 +42,7 @@ logger = logging.getLogger(__name__)
 def load_results_csv(csv_path: str, sample: int | None = None) -> list[dict]:
     """
     读取 run_baseline.py 生成的 CSV，还原 contexts 为 list[str]。
+    contexts 以多列形式存储：context_0, context_1, ...
 
     Args:
         csv_path: CSV 文件路径
@@ -50,7 +52,7 @@ def load_results_csv(csv_path: str, sample: int | None = None) -> list[dict]:
         list of dict: [{question, answer, contexts: list[str], ground_truth}]
     """
     df = pd.read_csv(csv_path)
-    required = {"query_id", "question", "answer", "contexts", "ground_truth"}
+    required = {"query_id", "question", "answer", "ground_truth"}
     missing = required - set(df.columns)
     if missing:
         raise ValueError(f"CSV 缺少列: {missing}  (实际列: {list(df.columns)})")
@@ -65,16 +67,14 @@ def load_results_csv(csv_path: str, sample: int | None = None) -> list[dict]:
         df = df.sample(n=sample, random_state=cfg.RANDOM_SEED).reset_index(drop=True)
         logger.info(f"  随机采样 {sample} 条（seed={cfg.RANDOM_SEED}）")
 
+    ctx_cols = sorted(
+        [c for c in df.columns if c.startswith("context_")],
+        key=lambda c: int(c.split("_", 1)[1]),
+    )
+
     records = []
     for _, row in df.iterrows():
-        # contexts 列是 JSON 字符串（run_baseline.py 写入时用 json.dumps）
-        try:
-            ctxs = json.loads(row["contexts"])
-            if not isinstance(ctxs, list):
-                ctxs = []
-        except (json.JSONDecodeError, TypeError):
-            ctxs = []
-
+        ctxs = [str(row[c]) for c in ctx_cols if pd.notna(row[c]) and str(row[c]).strip()]
         records.append({
             "query_id":    str(row["query_id"]),
             "question":    str(row["question"]),
@@ -113,7 +113,7 @@ def run_evaluation(csv_path: str, sample: int | None = None) -> str:
     logger.info(f" 评估配置")
     logger.info(f"   输入文件  : {csv_path}")
     logger.info(f"   评估条数  : {sample or '全量'}")
-    logger.info(f"   LLM Judge : {cfg.DEEPSEEK_MODEL}")
+    logger.info(f"   LLM Judge : {cfg.GLM_MODEL}")
     logger.info("=" * 60)
 
     # ── 1. 加载数据 ────────────────────────────────────────────
@@ -134,7 +134,7 @@ def run_evaluation(csv_path: str, sample: int | None = None) -> str:
 
     # ── 5. 保存 JSON ───────────────────────────────────────────
     stem     = Path(csv_path).stem
-    out_path = os.path.join(cfg.RESULTS_DIR, f"{stem}_ragas.json")
+    out_path = os.path.join(os.path.dirname(os.path.abspath(csv_path)), f"{stem}_ragas.json")
 
     output = {
         "source_file":  csv_path,
@@ -165,7 +165,7 @@ def _print_summary(scores: dict, csv_path: str, n: int) -> None:
     print(SEP)
     for key, label in METRIC_LABELS.items():
         val = scores.get(key, float("nan"))
-        if val != val:   # NaN
+        if math.isnan(val):   # NaN
             bar = "N/A (no_rag 模式)"
             print(f"  {label:<38} N/A")
         else:

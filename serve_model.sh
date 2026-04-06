@@ -10,7 +10,7 @@
 
 set -euo pipefail
 
-MODEL="Qwen/Qwen2.5-7B-Instruct"
+MODEL="/data/zhaoyaoxi/huggingface_cache/Qwen2.5-7B-Instruct" 
 PORT=8000
 TP=2           # Tensor Parallel Size（双卡）
 GPU_MEM=0.80   # 每张卡的显存占用上限（90%）
