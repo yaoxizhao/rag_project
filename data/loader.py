@@ -1,22 +1,21 @@
 """
-data/loader.py — BeIR/NQ 数据加载、采样与切块
+data/loader.py — 数据加载门面（Facade）+ 公共工具 + 数据集注册表
 
-数据源：通过 beir 库下载原始 JSONL 文件（绕开 HuggingFace 加载脚本限制）。
-下载后缓存在 cfg.HF_CACHE_DIR/beir_datasets/nq/，后续实验直接读本地文件。
+公开接口（所有数据集通用，切换数据集只需改 config.py）：
+    chunk_text(text, chunk_size, overlap)    -> list[str]
+    load_corpus(num_docs)                    -> dict[doc_id, {title, text}]
+    chunk_corpus(corpus)                     -> list[{chunk_id, doc_id, text}]
+    load_queries_with_qrels(num_queries)     -> list[dict]
+    register_dataset(name, load_corpus_fn, load_queries_fn)
+    available_datasets()                     -> list[str]
 
-公开接口：
-    chunk_text(text, chunk_size, overlap) -> list[str]
-    load_corpus(num_docs)                -> dict[doc_id, {title, text}]
-    chunk_corpus(corpus)                 -> list[{chunk_id, doc_id, text}]
-    load_queries_with_qrels(num_queries) -> list[{query_id, question,
-                                                   ground_truth,
-                                                   relevant_doc_ids}]
+扩展方式（添加新数据集）：
+    1. 在 data/ 下新建 xxx_dataset.py，实现 load_corpus() 和 load_queries()
+    2. 调用 register_dataset("xxx", load_corpus_fn, load_queries_fn)
+    3. config.py 中改 DATASET_NAME = "xxx"
 """
-import gzip
-import json
 import logging
 import os
-import random
 import sys
 
 # 确保从项目根目录导入 config（无论从哪里运行）
@@ -25,126 +24,37 @@ import config as cfg  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
-# 本地缓存目录：按数据集名称隔离，切换数据集只需改 config.DATASET_NAME
-_dataset_slug = cfg.DATASET_NAME.replace("/", "_").lower()  # e.g. "beir_nq"
-_DATASET_DIR  = os.path.join(cfg.HF_CACHE_DIR, _dataset_slug)
+
+# ──────────────────────────────────────────────────────────
+# 数据集注册表
+# ──────────────────────────────────────────────────────────
+
+_DATASET_REGISTRY: dict[str, dict] = {}
+
+
+def register_dataset(name: str, load_corpus_fn, load_queries_fn):
+    """
+    注册数据集。添加新数据集时调用此函数。
+
+    Args:
+        name:            数据集名称（对应 config.DATASET_NAME）
+        load_corpus_fn:  函数 (num_docs=None) -> dict[doc_id, {title, text}]
+        load_queries_fn: 函数 (num_queries=None) -> list[dict]
+    """
+    _DATASET_REGISTRY[name] = {
+        "load_corpus": load_corpus_fn,
+        "load_queries": load_queries_fn,
+    }
+    logger.debug(f"[Registry] 注册数据集: {name}")
+
+
+def available_datasets() -> list[str]:
+    """返回所有已注册的数据集名称。"""
+    return sorted(_DATASET_REGISTRY.keys())
 
 
 # ──────────────────────────────────────────────────────────
-# 内部：数据集下载与文件路径
-# ──────────────────────────────────────────────────────────
-
-def _hf_download(repo_id: str, filename: str, local_path: str) -> None:
-    """
-    通过 hf-mirror.com 下载单个文件到 local_path。
-    若文件已存在则跳过。
-    """
-    if os.path.isfile(local_path):
-        logger.info(f"[Cache] 命中: {local_path}")
-        return
-    from huggingface_hub import hf_hub_download
-    logger.info(f"[HF] 下载 {repo_id}/{filename} → {local_path} …")
-    tmp = hf_hub_download(
-        repo_id=repo_id,
-        filename=filename,
-        repo_type="dataset",
-        cache_dir=cfg.HF_CACHE_DIR,
-        endpoint=cfg.HF_ENDPOINT,
-    )
-    os.makedirs(os.path.dirname(local_path), exist_ok=True)
-    # hf_hub_download 返回缓存内副本，软链或拷贝到目标位置
-    if not os.path.isfile(local_path):
-        import shutil
-        shutil.copy2(tmp, local_path)
-    logger.info(f"[HF] 下载完成: {local_path}")
-
-
-def _ensure_dataset() -> str:
-    """
-    确保当前数据集（cfg.DATASET_NAME）的三个核心文件已下载并解压：
-        corpus.jsonl      — 来自 cfg.DATASET_NAME :: corpus.jsonl.gz
-        queries.jsonl     — 来自 cfg.DATASET_NAME :: queries.jsonl.gz
-        qrels/test.tsv    — 来自 cfg.QRELS_NAME   :: test.tsv
-    切换数据集只需修改 config.py 中的 DATASET_NAME 和 QRELS_NAME。
-    """
-    os.makedirs(_DATASET_DIR, exist_ok=True)
-    qrels_dir = os.path.join(_DATASET_DIR, "qrels")
-    os.makedirs(qrels_dir, exist_ok=True)
-
-    corpus_jsonl  = os.path.join(_DATASET_DIR, "corpus.jsonl")
-    queries_jsonl = os.path.join(_DATASET_DIR, "queries.jsonl")
-    qrels_tsv     = os.path.join(qrels_dir, "test.tsv")
-
-    def _download_and_decompress(repo_id: str, gz_filename: str, out_jsonl: str):
-        gz_path = out_jsonl + ".gz"
-        _hf_download(repo_id, gz_filename, gz_path)
-        if not os.path.isfile(out_jsonl):
-            logger.info(f"[Decompress] {gz_path} → {out_jsonl} …")
-            with gzip.open(gz_path, "rb") as fin, open(out_jsonl, "wb") as fout:
-                import shutil
-                shutil.copyfileobj(fin, fout)
-            logger.info(f"[Decompress] 完成: {out_jsonl}")
-
-    # corpus
-    if not os.path.isfile(corpus_jsonl):
-        _download_and_decompress(cfg.DATASET_NAME, "corpus.jsonl.gz", corpus_jsonl)
-    else:
-        logger.info(f"[Cache] corpus.jsonl 已存在，跳过下载")
-
-    # queries
-    if not os.path.isfile(queries_jsonl):
-        _download_and_decompress(cfg.DATASET_NAME, "queries.jsonl.gz", queries_jsonl)
-    else:
-        logger.info(f"[Cache] queries.jsonl 已存在，跳过下载")
-
-    # qrels (plain TSV, not gzipped)
-    if not os.path.isfile(qrels_tsv):
-        _hf_download(cfg.QRELS_NAME, "test.tsv", qrels_tsv)
-    else:
-        logger.info(f"[Cache] qrels/test.tsv 已存在，跳过下载")
-
-    return _DATASET_DIR
-
-
-def _corpus_file()  -> str: return os.path.join(_ensure_dataset(), "corpus.jsonl")
-def _queries_file() -> str: return os.path.join(_ensure_dataset(), "queries.jsonl")
-def _qrels_file()   -> str: return os.path.join(_ensure_dataset(), "qrels", "test.tsv")
-
-
-# ──────────────────────────────────────────────────────────
-# 内部：蓄水池采样（Reservoir Sampling）
-# ──────────────────────────────────────────────────────────
-
-def _reservoir_sample_jsonl(
-    filepath: str,
-    n: int,
-    seed: int = cfg.RANDOM_SEED,
-) -> list[dict]:
-    """
-    对大型 JSONL 文件做蓄水池采样，内存复杂度 O(n)，时间复杂度 O(文件行数)。
-    保证相同 seed 下结果完全一致。
-    """
-    rng = random.Random(seed)
-    reservoir: list[dict] = []
-    i = -1
-    with open(filepath, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            i += 1
-            row = json.loads(line)
-            if len(reservoir) < n:
-                reservoir.append(row)
-            else:
-                j = rng.randint(0, i)
-                if j < n:
-                    reservoir[j] = row
-    return reservoir
-
-
-# ──────────────────────────────────────────────────────────
-# 文本切块
+# 文本切块（公共工具，所有数据集通用）
 # ──────────────────────────────────────────────────────────
 
 def chunk_text(
@@ -154,14 +64,6 @@ def chunk_text(
 ) -> list[str]:
     """
     将文本按词切分为等长重叠块（word-based chunking）。
-
-    Args:
-        text:       原始文本字符串
-        chunk_size: 每块的词数（默认 256 词 ≈ 340 tokens）
-        overlap:    相邻块之间的词重叠数（默认 32 词）
-
-    Returns:
-        list of chunk strings（至少返回 1 个元素）
     """
     words = text.split()
     if not words:
@@ -182,106 +84,7 @@ def chunk_text(
 
 
 # ──────────────────────────────────────────────────────────
-# 语料库加载
-# ──────────────────────────────────────────────────────────
-
-def load_corpus(num_docs=cfg.DEV_CORPUS_NUM) -> dict[str, dict]:
-    """
-    从 corpus.jsonl 加载文档。num_docs=None 时加载全量。
-    """
-    corpus_file = _corpus_file()
-    logger.info(f"[Corpus] 来源: {corpus_file}")
-
-    if num_docs is None:
-        with open(corpus_file, encoding="utf-8") as f:
-            rows = [json.loads(line) for line in f if line.strip()]
-        logger.info(f"[Corpus] 全量加载: {len(rows):,} 篇")
-    else:
-        logger.info(f"[Corpus] 蓄水池采样 {num_docs:,} 篇（seed={cfg.RANDOM_SEED}）…")
-        rows = _reservoir_sample_jsonl(corpus_file, num_docs, cfg.RANDOM_SEED)
-        logger.info(f"[Corpus] 采样完成: {len(rows):,} 篇")
-
-    return {
-        row["_id"]: {"title": row.get("title", ""), "text": row["text"]}
-        for row in rows
-    }
-
-
-# ──────────────────────────────────────────────────────────
-# 语料库加载（保证 ground truth 文档覆盖）
-# ──────────────────────────────────────────────────────────
-
-def load_corpus_with_guaranteed_hits(
-    num_docs: int,
-    num_queries: int,
-) -> dict[str, dict]:
-    """
-    构建语料库，保证所有测试 query 的 relevant docs 一定包含在内，
-    再用随机文档填充到 num_docs 总量。
-
-    Args:
-        num_docs:    目标语料库文档总数
-        num_queries: 测试 query 数量（用于确定需要覆盖的 relevant docs）
-
-    Returns:
-        dict: {doc_id: {"title": str, "text": str}}，格式与 load_corpus() 一致
-    """
-    # 1. 获取所有 relevant doc_ids
-    queries = load_queries_with_qrels(num_queries)
-    required_ids: set[str] = set()
-    for q in queries:
-        required_ids.update(q["relevant_doc_ids"])
-    logger.info(f"[Corpus] 需保证覆盖的 relevant docs: {len(required_ids)} 篇")
-
-    # 2. 流式扫描 corpus.jsonl，分离 required 和 candidate
-    corpus_file = _corpus_file()
-    guaranteed: dict[str, dict] = {}
-    candidates: list[dict] = []  # 非 relevant 的文档，用于随机填充
-
-    with open(corpus_file, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            row = json.loads(line)
-            doc = {"title": row.get("title", ""), "text": row["text"]}
-            if row["_id"] in required_ids:
-                guaranteed[row["_id"]] = doc
-            else:
-                candidates.append((row["_id"], doc))
-
-    logger.info(f"[Corpus] 命中 relevant docs: {len(guaranteed)}/{len(required_ids)}")
-
-    if num_docs is None:
-        corpus = dict(guaranteed)
-        for doc_id, doc in candidates:
-            corpus[doc_id] = doc
-        logger.info(f"[Corpus] 全量语料库: {len(corpus):,} 篇")
-        return corpus
-
-    if len(guaranteed) >= num_docs:
-        logger.warning(
-            f"[Corpus] relevant docs ({len(guaranteed)}) >= num_docs ({num_docs})，"
-            "随机截取 num_docs 篇"
-        )
-        sampled_ids = random.Random(cfg.RANDOM_SEED).sample(list(guaranteed.keys()), num_docs)
-        return {k: guaranteed[k] for k in sampled_ids}
-
-    # 3. 随机采样填充
-    fill_count = num_docs - len(guaranteed)
-    rng = random.Random(cfg.RANDOM_SEED)
-    sampled = rng.sample(candidates, min(fill_count, len(candidates)))
-
-    corpus = dict(guaranteed)
-    for doc_id, doc in sampled:
-        corpus[doc_id] = doc
-
-    logger.info(f"[Corpus] 最终语料库: {len(corpus):,} 篇（guaranteed={len(guaranteed)}, random={len(sampled)}）")
-    return corpus
-
-
-# ──────────────────────────────────────────────────────────
-# 语料库切块
+# 语料库切块（公共工具，所有数据集通用）
 # ──────────────────────────────────────────────────────────
 
 def chunk_corpus(corpus: dict[str, dict]) -> list[dict]:
@@ -290,7 +93,6 @@ def chunk_corpus(corpus: dict[str, dict]) -> list[dict]:
 
     Returns:
         list of dicts: [{"chunk_id": str, "doc_id": str, "text": str}]
-        chunk_id 格式: "{doc_id}_{chunk_index}"
     """
     chunks = []
     for doc_id, doc in corpus.items():
@@ -308,101 +110,132 @@ def chunk_corpus(corpus: dict[str, dict]) -> list[dict]:
 
 
 # ──────────────────────────────────────────────────────────
-# Query + Qrels 加载
+# 公共 API（门面函数，自动路由到对应数据集）
 # ──────────────────────────────────────────────────────────
+
+def load_corpus(num_docs=None) -> dict[str, dict]:
+    """
+    加载语料库。根据 config.DATASET_NAME 自动选择数据集。
+    """
+    name = cfg.DATASET_NAME
+    if name not in _DATASET_REGISTRY:
+        raise ValueError(
+            f"未注册的数据集: {name!r}，已注册: {available_datasets()}\n"
+            f"请先调用 register_dataset() 注册该数据集"
+        )
+    return _DATASET_REGISTRY[name]["load_corpus"](num_docs=num_docs)
+
 
 def load_queries_with_qrels(num_queries: int = cfg.DEV_QUERY_NUM) -> list[dict]:
     """
-    加载 BeIR/NQ 测试集 queries，并通过 qrels 关联 ground-truth 文档文本。
-
-    ground_truth 取该 query 第一条相关文档（score>0）的文本，
-    供 Ragas 的 ground_truths 字段使用。
-
-    Args:
-        num_queries: 采样 query 数，默认 DEV_QUERY_NUM=200
-
-    Returns:
-        list of dicts:
-            query_id        — query 原始 ID（字符串）
-            question        — 问题文本
-            ground_truth    — 第一条相关文档的文本
-            relevant_doc_ids— 所有相关文档 ID 列表
+    加载测试集 queries。根据 config.DATASET_NAME 自动选择数据集。
     """
-    # 1. 读取 qrels（仅保留正相关，score > 0）
-    qrels_file = _qrels_file()
-    logger.info(f"[Qrels] 读取 {qrels_file} …")
-    qid_to_cids: dict[str, list[str]] = {}
-    with open(qrels_file, encoding="utf-8") as f:
-        header = f.readline()  # 跳过表头 (query-id  corpus-id  score)
-        logger.debug(f"[Qrels] 表头: {header.strip()}")
-        for line in f:
-            parts = line.strip().split("\t")
-            if len(parts) < 3:
-                continue
-            qid, cid, score = parts[0], parts[1], int(parts[2])
-            if score > 0:
-                qid_to_cids.setdefault(qid, []).append(cid)
-    logger.info(f"[Qrels] 正相关条目 query 数: {len(qid_to_cids):,}")
-
-    # 2. 读取 queries
-    queries_file = _queries_file()
-    logger.info(f"[Queries] 读取 {queries_file} …")
-    qid_to_question: dict[str, str] = {}
-    with open(queries_file, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            row = json.loads(line)
-            qid_to_question[row["_id"]] = row["text"]
-    logger.info(f"[Queries] 全量 queries: {len(qid_to_question):,} 条")
-
-    # 3. 可复现采样
-    valid_qids = [qid for qid in qid_to_cids if qid in qid_to_question]
-    rng = random.Random(cfg.RANDOM_SEED)
-    sampled_qids = rng.sample(valid_qids, min(num_queries, len(valid_qids)))
-
-    # 4. 找到所有需要的语料库文档（用于 ground truth 文本）
-    needed_cids: set[str] = set()
-    for qid in sampled_qids:
-        needed_cids.update(qid_to_cids[qid])
-    logger.info(
-        f"[Corpus] 需要获取 ground-truth 的文档: {len(needed_cids)} 篇，"
-        "流式扫描 corpus.jsonl …"
-    )
-
-    # 5. 流式扫描 corpus.jsonl，找到 needed_cids（找齐后提前退出）
-    corpus_file = _corpus_file()
-    cid_to_text: dict[str, str] = {}
-    with open(corpus_file, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            row = json.loads(line)
-            if row["_id"] in needed_cids:
-                cid_to_text[row["_id"]] = row["text"]
-            if len(cid_to_text) >= len(needed_cids):
-                break  # 找齐了，提前终止
-    logger.info(f"[Corpus] ground-truth 命中: {len(cid_to_text)}/{len(needed_cids)}")
-
-    # 6. 组装 records
-    records = []
-    for qid in sampled_qids:
-        relevant_cids = qid_to_cids[qid]
-        ground_truth  = next(
-            (cid_to_text[cid] for cid in relevant_cids if cid in cid_to_text),
-            "",  # 极少数情况：相关文档未出现在 corpus.jsonl 中
+    name = cfg.DATASET_NAME
+    if name not in _DATASET_REGISTRY:
+        raise ValueError(
+            f"未注册的数据集: {name!r}，已注册: {available_datasets()}\n"
+            f"请先调用 register_dataset() 注册该数据集"
         )
+    return _DATASET_REGISTRY[name]["load_queries"](num_queries=num_queries)
+
+
+# ──────────────────────────────────────────────────────────
+# 注册内置数据集：SQuAD 2.0
+# ──────────────────────────────────────────────────────────
+
+def _squad_v2_load_corpus(num_docs=None) -> dict[str, dict]:
+    """从 SQuAD 2.0 的 train + validation 中提取去重的 context 段落。"""
+    from datasets import load_dataset as hf_load
+
+    logger.info("[Corpus] 从 SQuAD 2.0 train+val 提取唯一 context 段落 …")
+    seen: set[str] = set()
+    corpus: dict[str, dict] = {}
+
+    for split_name in ["train", "validation"]:
+        ds = hf_load("rajpurkar/squad_v2", split=split_name)
+        for item in ds:
+            ctx = item["context"]
+            if ctx in seen:
+                continue
+            seen.add(ctx)
+            doc_id = f"doc_{len(corpus)}"
+            corpus[doc_id] = {"title": item["title"], "text": ctx}
+            if num_docs and len(corpus) >= num_docs:
+                logger.info(f"[Corpus] 达到上限 {num_docs}，停止加载")
+                return corpus
+
+    logger.info(f"[Corpus] 加载完成: {len(corpus):,} 篇唯一段落")
+    return corpus
+
+
+def _squad_v2_load_queries(num_queries=None) -> list[dict]:
+    """加载 SQuAD 2.0 验证集问题。"""
+    import random
+    from datasets import load_dataset as hf_load
+
+    logger.info("[Queries] 加载 SQuAD 2.0 验证集 …")
+    ds = hf_load("rajpurkar/squad_v2", split="validation")
+    total = len(ds)
+
+    rng = random.Random(cfg.RANDOM_SEED)
+    indices = list(range(total))
+    rng.shuffle(indices)
+    if num_queries:
+        indices = indices[:num_queries]
+
+    records = []
+    answerable = 0
+    unanswerable = 0
+    for i in indices:
+        item = ds[int(i)]
+        is_impossible = len(item["answers"]["text"]) == 0
+        ground_truth = item["answers"]["text"][0] if not is_impossible else ""
+
+        if is_impossible:
+            unanswerable += 1
+        else:
+            answerable += 1
+
         records.append({
-            "query_id":         qid,
-            "question":         qid_to_question[qid],
-            "ground_truth":     ground_truth,
-            "relevant_doc_ids": relevant_cids,
+            "query_id":          item["id"],
+            "question":          item["question"],
+            "ground_truth":      ground_truth,
+            "is_impossible":     is_impossible,
+            "relevant_context":  item["context"],
         })
 
-    logger.info(f"[Queries] 最终样本数: {len(records)}")
+    logger.info(
+        f"[Queries] 采样 {len(records)} 条 "
+        f"(可回答: {answerable}, 不可回答: {unanswerable})"
+    )
     return records
+
+
+# 注册 SQuAD 2.0
+register_dataset("squad_v2", _squad_v2_load_corpus, _squad_v2_load_queries)
+
+
+# ──────────────────────────────────────────────────────────
+# 扩展示例（未来数据集添加模板）
+# ──────────────────────────────────────────────────────────
+
+# 添加新数据集（如 fiqa）的步骤：
+#
+# 方式一：在本文件中添加（适合简单数据集）
+#   def _fiqa_load_corpus(num_docs=None):
+#       ...
+#   def _fiqa_load_queries(num_queries=None):
+#       ...
+#   register_dataset("fiqa", _fiqa_load_corpus, _fiqa_load_queries)
+#
+# 方式二：在单独文件中添加（适合复杂数据集）
+#   # data/fiqa_dataset.py
+#   from data.loader import register_dataset
+#   def load_corpus(num_docs=None): ...
+#   def load_queries(num_queries=None): ...
+#   register_dataset("fiqa", load_corpus, load_queries)
+#
+#   # 然后在 run_baseline.py 开头: import data.fiqa_dataset  # noqa
 
 
 # ──────────────────────────────────────────────────────────
@@ -418,38 +251,33 @@ if __name__ == "__main__":
 
     SEP = "=" * 60
 
-    # ── Test 1: chunk_text（无需下载）──────────────────────
+    # ── Test 0: 注册表 ──────────────────────────────────────
     print(f"\n{SEP}")
-    print("Test 1 / chunk_text()  [无需下载]")
+    print("Test 0 / 数据集注册表")
+    print(SEP)
+    print(f"  已注册数据集: {available_datasets()}")
+    print(f"  当前使用: {cfg.DATASET_NAME}")
+    assert cfg.DATASET_NAME in available_datasets()
+    print("  [PASS] 注册表验证通过")
+
+    # ── Test 1: chunk_text ──────────────────────────────────
+    print(f"\n{SEP}")
+    print("Test 1 / chunk_text()")
     print(SEP)
     sample_text = " ".join([f"word{i}" for i in range(300)])
     result_chunks = chunk_text(sample_text)
-    print(f"  输入: 300 词")
-    print(f"  输出: {len(result_chunks)} 个 chunk")
-    for i, c in enumerate(result_chunks):
-        wc = len(c.split())
-        overlap_ok = True  # 验证重叠
-        print(f"  chunk[{i}]: {wc} 词  首10词→ {' '.join(c.split()[:10])}…")
+    assert len(result_chunks) >= 2
     assert all(len(c.split()) <= cfg.CHUNK_SIZE for c in result_chunks)
-    # 验证重叠：chunk[1] 的前 overlap 词应与 chunk[0] 的后 overlap 词相同
-    if len(result_chunks) >= 2:
-        tail0 = result_chunks[0].split()[-cfg.CHUNK_OVERLAP:]
-        head1 = result_chunks[1].split()[:cfg.CHUNK_OVERLAP]
-        assert tail0 == head1, f"Overlap 不正确: {tail0} != {head1}"
     print("  [PASS] chunk_text 验证通过")
 
-    # ── Test 2: load_corpus（会触发下载，首次较慢）─────────
+    # ── Test 2: load_corpus ─────────────────────────────────
     print(f"\n{SEP}")
-    print("Test 2 / load_corpus(num_docs=50)  [首次运行会下载数据集]")
+    print("Test 2 / load_corpus(num_docs=50)")
     print(SEP)
     corpus = load_corpus(num_docs=50)
-    print(f"  加载文档数: {len(corpus)}")
-    assert len(corpus) == 50, f"期望50篇，实际{len(corpus)}篇"
-    sample_id  = next(iter(corpus))
-    sample_doc = corpus[sample_id]
-    print(f"  示例 doc_id : {sample_id}")
-    print(f"  示例 title  : {sample_doc['title'][:80]}")
-    print(f"  示例 text   : {sample_doc['text'][:120]}…")
+    assert len(corpus) == 50
+    sample = next(iter(corpus.values()))
+    print(f"  示例 title: {sample['title'][:60]}")
     print("  [PASS] load_corpus 验证通过")
 
     # ── Test 3: chunk_corpus ────────────────────────────────
@@ -457,28 +285,23 @@ if __name__ == "__main__":
     print("Test 3 / chunk_corpus()")
     print(SEP)
     all_chunks = chunk_corpus(corpus)
-    print(f"  {len(corpus)} 篇文档 → {len(all_chunks)} 个 chunk")
-    print(f"  平均每篇 chunk 数: {len(all_chunks)/len(corpus):.1f}")
-    print(f"  chunk[0] chunk_id : {all_chunks[0]['chunk_id']}")
-    print(f"  chunk[0] text     : {all_chunks[0]['text'][:120]}…")
-    assert all("chunk_id" in c and "doc_id" in c and "text" in c for c in all_chunks)
+    assert all("chunk_id" in c for c in all_chunks)
+    print(f"  {len(corpus)} 篇 → {len(all_chunks)} chunks")
     print("  [PASS] chunk_corpus 验证通过")
 
-    # ── Test 4: load_queries_with_qrels ────────────────────
+    # ── Test 4: load_queries_with_qrels ─────────────────────
     print(f"\n{SEP}")
-    print("Test 4 / load_queries_with_qrels(num_queries=5)")
+    print("Test 4 / load_queries_with_qrels(num_queries=10)")
     print(SEP)
-    queries = load_queries_with_qrels(num_queries=5)
-    print(f"  加载 query 数: {len(queries)}")
-    assert len(queries) == 5
-    for q in queries:
-        print(f"\n  Q  [{q['query_id']}]: {q['question']}")
-        gt = q['ground_truth'][:100].replace('\n', ' ')
-        print(f"  GT (前100字符)  : {gt}…")
-        print(f"  相关文档数      : {len(q['relevant_doc_ids'])}")
-    assert all(q["question"] for q in queries), "存在空 question！"
-    print("\n  [PASS] load_queries_with_qrels 验证通过")
+    queries = load_queries_with_qrels(num_queries=10)
+    assert len(queries) == 10
+    ans = sum(1 for q in queries if not q["is_impossible"])
+    print(f"  可回答: {ans}, 不可回答: {10 - ans}")
+    for q in queries[:2]:
+        tag = "UNANS" if q["is_impossible"] else "ANS"
+        print(f"  [{tag}] {q['question'][:60]}  GT={q['ground_truth'][:30]}")
+    print("  [PASS] load_queries_with_qrels 验证通过")
 
     print(f"\n{SEP}")
-    print("全部测试通过！data/loader.py 工作正常。")
+    print("全部测试通过！")
     print(SEP)

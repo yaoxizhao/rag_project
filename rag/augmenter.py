@@ -33,9 +33,10 @@ Answer:"""
 
 _NAIVE_RAG_TEMPLATE = """\
 Use the following context passages to answer the question.
-Base your answer ONLY on the provided context.
-If the context does not contain enough information, say \
-"I cannot find the answer in the provided context."
+Base your answer primarily on the provided context. If the context \
+partially addresses the question, provide what you can and briefly \
+note any gaps. Only say you cannot answer if the context contains \
+no relevant information at all.
 
 Context:
 {context_block}

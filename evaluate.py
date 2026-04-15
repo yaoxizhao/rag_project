@@ -10,7 +10,7 @@ evaluate.py — Ragas 评估入口
     python evaluate.py --input results/naive_rag_dev_*.csv --sample 50
 
 前置条件:
-    export DEEPSEEK_API_KEY='sk-...'   # DeepSeek API Key
+    在 .env 文件中配置 GLM_RAGAS_API_KEY（Ragas 评测专用）
 
 输出:
     终端打印：指标摘要表
@@ -57,11 +57,10 @@ def load_results_csv(csv_path: str, sample: int | None = None) -> list[dict]:
     if missing:
         raise ValueError(f"CSV 缺少列: {missing}  (实际列: {list(df.columns)})")
 
-    # 过滤掉生成失败的行（answer 为空）
-    before = len(df)
-    df = df[df["answer"].str.strip().astype(bool)].reset_index(drop=True)
-    if len(df) < before:
-        logger.warning(f"  过滤掉 {before - len(df)} 条空 answer 行，剩余 {len(df)} 条")
+    # 空答案不过滤，生成失败也计入评估（得分自然为低）
+    empty_count = (df["answer"].str.strip() == "").sum()
+    if empty_count > 0:
+        logger.warning(f"  含 {empty_count} 条空 answer（生成失败），仍计入评估")
 
     if sample is not None and sample < len(df):
         df = df.sample(n=sample, random_state=cfg.RANDOM_SEED).reset_index(drop=True)
@@ -76,11 +75,13 @@ def load_results_csv(csv_path: str, sample: int | None = None) -> list[dict]:
     for _, row in df.iterrows():
         ctxs = [str(row[c]) for c in ctx_cols if pd.notna(row[c]) and str(row[c]).strip()]
         records.append({
-            "query_id":    str(row["query_id"]),
-            "question":    str(row["question"]),
-            "answer":      str(row["answer"]),
-            "contexts":    ctxs,
-            "ground_truth": str(row["ground_truth"]),
+            "query_id":          str(row["query_id"]),
+            "question":          str(row["question"]),
+            "answer":            str(row["answer"]),
+            "contexts":          ctxs,
+            "ground_truth":      str(row["ground_truth"]),
+            "is_impossible":     bool(row.get("is_impossible", False)),
+            "relevant_context":  str(row.get("relevant_context", "")),
         })
 
     logger.info(
@@ -120,14 +121,34 @@ def run_evaluation(csv_path: str, sample: int | None = None) -> str:
     logger.info("[Step 1] 加载结果 CSV …")
     records = load_results_csv(csv_path, sample=sample)
 
-    # ── 2. 初始化 LLM Judge ───────────────────────────────────
-    logger.info("[Step 2] 初始化 DeepSeek LLM Judge …")
-    ragas_llm = build_ragas_llm()
-    ragas_embeddings = build_ragas_embeddings()
+    # ── 按可回答/不可回答分组 ──────────────────────────────────
+    answerable = [r for r in records if not r["is_impossible"]]
+    unanswerable = [r for r in records if r["is_impossible"]]
+    logger.info(f"  可回答: {len(answerable)} 条，不可回答: {len(unanswerable)} 条")
 
-    # ── 3. Ragas 评估 ──────────────────────────────────────────
-    logger.info(f"[Step 3] 执行 Ragas 评估（{len(records)} 条）…")
-    scores = evaluate_rag(records, ragas_llm=ragas_llm, ragas_embeddings=ragas_embeddings)
+    scores = {}
+
+    # ── 2. 可回答问题：Ragas 完整评测 ─────────────────────────
+    if answerable:
+        logger.info("[Step 2] 初始化 LLM Judge …")
+        ragas_llm = build_ragas_llm()
+        ragas_embeddings = build_ragas_embeddings()
+
+        logger.info(f"[Step 3a] 可回答问题 Ragas 评估（{len(answerable)} 条）…")
+        ans_scores = evaluate_rag(answerable, ragas_llm=ragas_llm, ragas_embeddings=ragas_embeddings)
+        # 加前缀区分
+        for k, v in ans_scores.items():
+            scores[f"answerable_{k}"] = v
+
+    # ── 3. 不可回答问题：计算幻觉率 ────────────────────────────
+    if unanswerable:
+        from evaluation.metrics import _compute_abstention_rate
+        logger.info(f"[Step 3b] 不可回答问题幻觉率评估（{len(unanswerable)} 条）…")
+        abstention_rate = _compute_abstention_rate(unanswerable)
+        hallucination_rate = 1.0 - abstention_rate
+        scores["hallucination_rate"] = hallucination_rate
+        scores["unanswerable_abstention_rate"] = abstention_rate
+        scores["unanswerable_total"] = len(unanswerable)
 
     # ── 4. 打印摘要 ────────────────────────────────────────────
     _print_summary(scores, csv_path, len(records))
@@ -153,26 +174,29 @@ def _print_summary(scores: dict, csv_path: str, n: int) -> None:
     """在终端打印格式化的评估结果。"""
     SEP = "=" * 50
     METRIC_LABELS = {
-        "faithfulness":       "Faithfulness       (幻觉↓)",
-        "answer_correctness": "Answer Correctness (准确性)",
-        "context_recall":     "Context Recall     (覆盖率)",
-        "context_precision":  "Context Precision  (精确率)",
-        "abstention_rate":    "Abstention Rate    (拒答率)",
+        "answerable_faithfulness":       "Faithfulness       (可回答, 幻觉↓)",
+        "answerable_answer_correctness": "Answer Correctness (可回答, 准确性)",
+        "answerable_context_recall":     "Context Recall     (可回答, 覆盖率)",
+        "answerable_context_precision":  "Context Precision  (可回答, 精确率)",
+        "answerable_abstention_rate":    "Abstention Rate    (可回答, 拒答率)",
+        "hallucination_rate":            "Hallucination Rate (不可回答, 幻觉↑)",
+        "unanswerable_abstention_rate":  "Abstention Rate    (不可回答, 拒答↓)",
     }
     print(f"\n{SEP}")
-    print(f"  Ragas 评估结果")
+    print(f"  Ragas 评估结果 (SQuAD 2.0)")
     print(f"  文件: {os.path.basename(csv_path)}")
     print(f"  样本数: {n}")
     print(SEP)
     for key, label in METRIC_LABELS.items():
         val = scores.get(key, float("nan"))
-        if math.isnan(val):   # NaN
-            bar = "N/A (no_rag 模式)"
-            print(f"  {label:<38} N/A")
-        else:
+        if isinstance(val, (int, float)) and math.isnan(val):
+            print(f"  {label:<48} N/A")
+        elif isinstance(val, (int, float)):
             filled = int(val * 20)
             bar = "█" * filled + "░" * (20 - filled)
-            print(f"  {label:<38} {val:.4f}  [{bar}]")
+            print(f"  {label:<48} {val:.4f}  [{bar}]")
+        else:
+            print(f"  {label:<48} {val}")
     print(SEP)
 
 

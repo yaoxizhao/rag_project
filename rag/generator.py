@@ -23,6 +23,7 @@ rag/generator.py — LLM 生成模块
 import logging
 import os
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config as cfg  # noqa: E402
@@ -67,12 +68,13 @@ class Generator:
     # 公开接口
     # ──────────────────────────────────────────────────────
 
-    def generate(self, prompt: str) -> str:
+    def generate(self, prompt: str, max_retries: int = 3) -> str:
         """
-        调用 LLM 生成回答。
+        调用 LLM 生成回答（带指数退避重试）。
 
         Args:
             prompt: 由 Augmenter.build_prompt() 构建的完整 Prompt
+            max_retries: 最大重试次数（默认 3 次）
 
         Returns:
             str: LLM 生成的纯文本回答（已去除首尾空白）
@@ -81,13 +83,27 @@ class Generator:
             openai.APIConnectionError: vLLM 服务未启动或地址错误
             openai.APIStatusError:     服务端返回错误状态码
         """
-        response = self._client.chat.completions.create(
-            model=self._model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=cfg.LLM_TEMPERATURE,
-            max_tokens=cfg.LLM_MAX_TOKENS,
-        )
-        return response.choices[0].message.content.strip()
+        for attempt in range(max_retries):
+            try:
+                response = self._client.chat.completions.create(
+                    model=self._model,
+                    messages=[
+                        {"role": "system", "content": "You are a helpful assistant. Answer questions accurately and concisely."},
+                        {"role": "user", "content": prompt},
+                    ],
+                    temperature=cfg.LLM_TEMPERATURE,
+                    max_tokens=cfg.LLM_MAX_TOKENS,
+                )
+                return response.choices[0].message.content.strip()
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    raise
+                wait = 2 ** attempt
+                logger.warning(
+                    f"[Generator] attempt {attempt + 1}/{max_retries} failed: {e}, "
+                    f"retrying in {wait}s..."
+                )
+                time.sleep(wait)
 
     def health_check(self) -> bool:
         """

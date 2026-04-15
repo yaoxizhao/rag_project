@@ -1,7 +1,7 @@
 """
 evaluation/metrics.py — Ragas 0.4.x 评估指标封装
 
-使用 GLM-4-Flash API 作为 LLM Judge，计算五项 RAG 核心指标：
+使用 GLM-4-Plus API 作为 LLM Judge，计算五项 RAG 核心指标：
     faithfulness       — 回答是否忠实于检索上下文（核心幻觉指标）
     answer_correctness — 回答与 ground truth 的准确性
     context_recall     — 上下文对 ground truth 的覆盖率
@@ -31,58 +31,69 @@ import config as cfg  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
-# 拒答关键词（英文，NQ 数据集场景）
+# 拒答关键词（英文，fiqa 数据集场景）
 _ABSTENTION_PATTERNS = [
     "i don't know", "i do not know", "not mentioned", "not provided",
     "cannot find", "no information", "not enough information",
     "the context does not", "the provided context does not",
     "based on the provided", "i cannot answer",
+    "i'm unable to", "unable to answer", "insufficient information",
+    "no relevant information",
 ]
 
 
 def _compute_abstention_rate(records: list[dict]) -> float:
-    """基于关键词规则计算拒答率，无需 API 调用。"""
-    count = sum(
-        1 for r in records
-        if any(p in r["answer"].lower() for p in _ABSTENTION_PATTERNS)
-    )
+    """基于关键词规则计算拒答率，无需 API 调用。短回答+关键词才计为拒答，减少误报。"""
+    count = 0
+    for r in records:
+        answer = r["answer"].strip().lower()
+        if not answer:
+            count += 1
+            continue
+        has_pattern = any(p in answer for p in _ABSTENTION_PATTERNS)
+        word_count = len(answer.split())
+        if has_pattern and word_count < 30:
+            count += 1
     return count / len(records) if records else 0.0
 
 
 def build_ragas_llm():
     """
-    构建以 GLM-4-Flash 为后端的 Ragas LLM Judge（LangchainLLMWrapper）。
+    构建以 GLM-4-Plus 为后端的 Ragas LLM Judge（InstructorLLM）。
 
     Returns:
-        LangchainLLMWrapper 实例
+        InstructorBaseRagasLLM 实例
     """
-    from langchain_openai import ChatOpenAI
-    from ragas.llms import LangchainLLMWrapper
+    from openai import OpenAI
+    from ragas.llms import llm_factory
 
-    if not cfg.GLM_API_KEY:
+    if not cfg.GLM_RAGAS_API_KEY:
         raise EnvironmentError(
-            "未设置 GLM_API_KEY 环境变量。\n"
-            "请在 .env 文件中添加: GLM_API_KEY=your_key"
+            "未设置 GLM_RAGAS_API_KEY 环境变量。\n"
+            "请在 .env 文件中添加: GLM_RAGAS_API_KEY=your_key"
         )
 
-    lc_llm = ChatOpenAI(
-        model=cfg.GLM_MODEL,
-        api_key=cfg.GLM_API_KEY,
+    client = OpenAI(
+        api_key=cfg.GLM_RAGAS_API_KEY,
         base_url=cfg.GLM_BASE_URL,
+    )
+    ragas_llm = llm_factory(
+        model=cfg.GLM_MODEL,
+        client=client,
         temperature=0,
     )
     logger.info(f"[Ragas] LLM Judge: {cfg.GLM_MODEL} @ {cfg.GLM_BASE_URL}")
-    return LangchainLLMWrapper(lc_llm)
+    return ragas_llm
 
 
 def build_ragas_embeddings():
     """
-    构建本地 bge-m3 Embedding（供 AnswerRelevancy 使用）。
+    构建本地 bge-m3 Embedding。
 
     Returns:
         LangchainEmbeddingsWrapper 实例
     """
-    from langchain_community.embeddings import HuggingFaceEmbeddings
+    from langchain_huggingface import HuggingFaceEmbeddings
     from ragas.embeddings import LangchainEmbeddingsWrapper
 
     lc_emb = HuggingFaceEmbeddings(
@@ -110,7 +121,7 @@ def evaluate_rag(
                      answer        — LLM 生成的回答
                      contexts      — list[str]，检索段落（空列表 = no_rag）
                      ground_truth  — 参考答案文本
-        ragas_llm: LangchainLLMWrapper（None 则自动初始化 DeepSeek）
+        ragas_llm: InstructorBaseRagasLLM（None 则自动初始化 GLM-4-Plus）
         ragas_embeddings: LangchainEmbeddingsWrapper（None 则自动初始化 bge-m3）
 
     Returns:
@@ -162,7 +173,7 @@ def evaluate_rag(
     logger.info(f"[Ragas] 开始评估 {len(samples)} 条样本 …")
 
     # ── 执行评估 ───────────────────────────────────────────────
-    run_config = RunConfig(max_workers=32, timeout=120, max_retries=10)
+    run_config = RunConfig(max_workers=cfg.RAGAS_MAX_WORKERS, timeout=300, max_retries=10)
     result = evaluate(
         dataset,
         metrics=metrics,

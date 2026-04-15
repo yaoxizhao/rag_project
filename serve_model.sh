@@ -14,7 +14,7 @@ MODEL="/data/zhaoyaoxi/huggingface_cache/Qwen2.5-7B-Instruct"
 PORT=8000
 TP=2           # Tensor Parallel Size（双卡）
 GPU_MEM=0.80   # 每张卡的显存占用上限（90%）
-GPUS="2,7"     # 经检测空闲的 GPU（2026-04-04），其余卡被其他同学占用
+GPUS="5,6"     # 经检测空闲的 GPU（2026-04-04），其余卡被其他同学占用
 
 echo "========================================"
 echo " Starting vLLM server"

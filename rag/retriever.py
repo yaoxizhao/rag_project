@@ -98,9 +98,15 @@ class Retriever:
             logger.warning("[Retriever.add] chunks 为空，跳过")
             return
 
-        # 过滤已存在的 chunk_id（支持断点续传和分批写入）
-        existing_ids = set(self._collection.get(include=[])["ids"]) if self._collection.count() > 0 else set()
-        new_chunks = [c for c in chunks if c["chunk_id"] not in existing_ids]
+        # 只检查待插入 batch 的 ID，避免全集合扫描
+        if self._collection.count() > 0:
+            chunk_ids = [c["chunk_id"] for c in chunks]
+            existing = set(
+                self._collection.get(ids=chunk_ids, include=[])["ids"]
+            )
+            new_chunks = [c for c in chunks if c["chunk_id"] not in existing]
+        else:
+            new_chunks = chunks
         if not new_chunks:
             logger.info("[Retriever.add] 所有 chunks 已存在，跳过")
             return

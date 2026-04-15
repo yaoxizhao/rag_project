@@ -2,14 +2,14 @@
 build_index.py — ChromaDB 索引构建脚本（一次性执行）
 
 用法:
-    # 开发模式（10k 文档，约 10k chunks，快速迭代用）
+    # 开发模式（快速调试）
     python build_index.py --mode dev
 
-    # 正式评测模式（50k 文档，约 50k chunks，论文实验用）
+    # 正式评测模式（全量 ~20,000 文档）
     python build_index.py --mode eval
 
     # 强制重建（清空已有索引后重新构建）
-    python build_index.py --mode dev --force
+    python build_index.py --mode eval --force
 """
 import argparse
 import logging
@@ -21,16 +21,16 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import config as cfg  # noqa: E402 — 须最先导入，触发 HF 镜像设置
 
-from data.loader import chunk_corpus, load_corpus, load_corpus_with_guaranteed_hits
+from data.loader import chunk_corpus, load_corpus
 from rag.retriever import Retriever
 
 logger = logging.getLogger(__name__)
 
-# 实验模式 → (ChromaDB 集合名, 语料库文档数)
-_dataset_slug = cfg.DATASET_NAME.split("/")[-1]  # e.g. "BeIR/fiqa" -> "fiqa"
-MODE_CONFIG = {
-    "dev":  (f"{_dataset_slug}_dev",  cfg.DEV_CORPUS_NUM),
-    "eval": (f"{_dataset_slug}_eval", cfg.EVAL_CORPUS_NUM),
+# 实验模式 → ChromaDB 集合名
+_dataset_slug = cfg.DATASET_NAME  # "squad_v2"
+COLLECTION_NAMES = {
+    "dev":  f"{_dataset_slug}_dev",
+    "eval": f"{_dataset_slug}_eval",
 }
 
 
@@ -39,20 +39,17 @@ def build_index(mode: str = "dev", force: bool = False) -> Retriever:
     加载语料库、切块并写入 ChromaDB。
 
     Args:
-        mode:  "dev"（10k docs）或 "eval"（50k docs）
+        mode:  "dev" 或 "eval"（集合名不同，语料库相同）
         force: True 则先清空集合再重建
 
     Returns:
         已就绪的 Retriever 实例
     """
-    if mode not in MODE_CONFIG:
+    if mode not in COLLECTION_NAMES:
         raise ValueError(f"mode 须为 'dev' 或 'eval'，收到: {mode!r}")
 
-    collection_name, num_docs = MODE_CONFIG[mode]
-    logger.info(
-        f"[BuildIndex] 模式={mode} | 目标文档数={num_docs if num_docs is None else f'{num_docs:,}'} | "
-        f"集合={collection_name} | force={force}"
-    )
+    collection_name = COLLECTION_NAMES[mode]
+    logger.info(f"[BuildIndex] 模式={mode} | 集合={collection_name} | force={force}")
 
     retriever = Retriever(collection_name=collection_name)
 
@@ -70,11 +67,8 @@ def build_index(mode: str = "dev", force: bool = False) -> Retriever:
     # ── 加载语料库并分批切块写入 ──────────────────────────────
     CORPUS_BATCH = 5000
     t0 = time.time()
-    logger.info(f"[BuildIndex] 加载语料库（{num_docs if num_docs is None else f'{num_docs:,}'} 篇）…")
-    if mode == "eval":
-        corpus = load_corpus_with_guaranteed_hits(num_docs=num_docs, num_queries=cfg.EVAL_QUERY_NUM)
-    else:
-        corpus = load_corpus(num_docs=num_docs)
+    logger.info("[BuildIndex] 加载 SQuAD 2.0 语料库 …")
+    corpus = load_corpus()
 
     doc_items = list(corpus.items())
     del corpus
@@ -99,10 +93,10 @@ def build_index(mode: str = "dev", force: bool = False) -> Retriever:
 # ──────────────────────────────────────────────────────────
 
 def _parse_args():
-    parser = argparse.ArgumentParser(description="Build ChromaDB index for RAG baseline")
+    parser = argparse.ArgumentParser(description="Build ChromaDB index for SQuAD 2.0 RAG baseline")
     parser.add_argument(
         "--mode", choices=["dev", "eval"], default="dev",
-        help="dev=10k docs, eval=50k docs (default: dev)",
+        help="dev or eval (different collection names, same corpus) (default: dev)",
     )
     parser.add_argument(
         "--force", action="store_true",
@@ -130,7 +124,7 @@ if __name__ == "__main__":
 
     # ── 无参数：执行本地测试 ────────────────────────────────────
     SEP = "=" * 60
-    TEST_COLLECTION = "nq_sanity_test"   # 独立测试集合，不污染正式数据
+    TEST_COLLECTION = "squad_sanity_test"
 
     print(f"\n{SEP}")
     print("build_index.py — 本地测试")
@@ -148,7 +142,7 @@ if __name__ == "__main__":
     # ── Step 2: 初始化 Retriever 并写入 ─────────────────────
     print(f"\n[Step 2] 初始化 Retriever，写入集合 '{TEST_COLLECTION}' …")
     retriever = Retriever(collection_name=TEST_COLLECTION)
-    retriever.reset()          # 确保干净的测试环境
+    retriever.reset()
     retriever.add(chunks)
     indexed = retriever.count()
     print(f"  索引文档数: {indexed}")
@@ -159,9 +153,9 @@ if __name__ == "__main__":
     # ── Step 3: 向量检索测试 ──────────────────────────────────
     print(f"\n[Step 3] 检索测试（Top-{cfg.TOP_K}）…")
     test_queries = [
-        "who wrote hallelujah i just love her so",        # NQ 真实问题（数据中有答案）
-        "when did the flash first appear on arrow",        # NQ 真实问题
-        "what is the capital of France",                   # 通用知识
+        "In what country is Normandy located?",
+        "When did the Normans give their name to Normandy?",
+        "What is the capital of France?",
     ]
 
     for query in test_queries:
@@ -187,5 +181,4 @@ if __name__ == "__main__":
     print("build_index.py 测试全部通过！")
     print(f"{SEP}")
     print("\n下一步：运行完整索引构建：")
-    print("  python build_index.py --mode dev    # 开发模式 (10k docs)")
-    print("  python build_index.py --mode eval   # 正式模式 (50k docs)")
+    print("  python build_index.py --mode eval   # 正式模式 (~20k docs)")

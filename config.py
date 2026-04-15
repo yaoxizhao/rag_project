@@ -47,12 +47,18 @@ LLM_BASE_URL    = "http://localhost:8000/v1"
 LLM_MODEL       = "Qwen2.5-7B-Instruct"
 LLM_API_KEY     = "EMPTY"     # vLLM 不校验 key
 LLM_TEMPERATURE = 0.0         # 确定性输出，保证可复现
-LLM_MAX_TOKENS  = 512
+LLM_MAX_TOKENS  = 128          # SQuAD 短答案（平均 3 词），128 tokens 足够
 
 # ──────────────────────────────────────────────────────────
 # 检索参数
 # ──────────────────────────────────────────────────────────
-TOP_K = 3                      # 每次检索返回的段落数
+TOP_K = 5                      # 每次检索返回的段落数
+
+# ──────────────────────────────────────────────────────────
+# 并发与断点续传
+# ──────────────────────────────────────────────────────────
+CONCURRENT_REQUESTS = 8          # vLLM 并发请求数（vLLM 自动 batch）
+CHECKPOINT_INTERVAL = 10         # 每处理 N 条保存一次断点
 
 # ──────────────────────────────────────────────────────────
 # 切块策略（word-based，英文约 1.3 word/token）
@@ -65,18 +71,16 @@ CHUNK_OVERLAP = 32             # words overlap between adjacent chunks
 # 数据集与采样
 # ──────────────────────────────────────────────────────────
 RANDOM_SEED  = 42
-DATASET_NAME = "BeIR/fiqa"
-QRELS_NAME   = "BeIR/fiqa-qrels"
+DATASET_NAME = "squad_v2"           # 用于 ChromaDB 集合命名
 
-DEV_QUERY_NUM  = 20           # 开发/调试阶段
-DEV_CORPUS_NUM = 10_0
-
-EVAL_QUERY_NUM  = 500          # 论文正式评测
-EVAL_CORPUS_NUM = None         # fiqa corpus 共 57,600 条，全量加载
+DEV_QUERY_NUM  = 50                  # 快速调试
+EVAL_QUERY_NUM = 600                 # 评测 query 数
 
 # ──────────────────────────────────────────────────────────
 # Ragas / LLM Judge（GLM-4-Flash，免费）
 # ──────────────────────────────────────────────────────────
-GLM_API_KEY   = os.environ.get("GLM_API_KEY", "")
-GLM_BASE_URL  = "https://open.bigmodel.cn/api/paas/v4"
-GLM_MODEL     = "glm-4-flash"
+GLM_API_KEY        = os.environ.get("GLM_API_KEY", "")
+GLM_RAGAS_API_KEY  = os.environ.get("GLM_RAGAS_API_KEY", "")
+GLM_BASE_URL       = "https://open.bigmodel.cn/api/paas/v4"
+GLM_MODEL          = "glm-4-flashx"
+RAGAS_MAX_WORKERS  = 30

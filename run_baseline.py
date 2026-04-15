@@ -1,34 +1,28 @@
 """
 run_baseline.py — 实验主脚本
 
-将 Retriever / Augmenter / Generator 串联成完整 RAG 流水线，
-支持两种对照实验模式：
+通过 rag/pipeline.py 的注册表机制选择流水线模式，
+支持无限制扩展新的 RAG 策略，无需修改本文件。
 
-    no_rag    : LLM 直接作答，无任何检索上下文（幻觉上界基准）
-    naive_rag : 标准 RAG，先检索 Top-K 段落再生成回答
+内置模式:
+    no_rag    : LLM 直接作答，无检索上下文
+    naive_rag : 标准 RAG，先检索 Top-K 再生成
+
+扩展模式:
+    只需在 rag/pipeline.py 中 @register_pipeline("新名称") 即可，
+    本文件通过 --mode 自动路由，不需要改。
 
 用法:
-    # 开发集（200 queries × 10k 语料，默认）
     python run_baseline.py --mode no_rag
-    python run_baseline.py --mode naive_rag
-
-    # 正式评测集（500 queries × 50k 语料）
-    python run_baseline.py --mode no_rag    --dataset eval
     python run_baseline.py --mode naive_rag --dataset eval
-
-    # 快速冒烟测试（只跑 N 条 query，验证流程）
     python run_baseline.py --mode naive_rag --num-queries 5
-
-输出:
-    results/{mode}_{dataset}_{timestamp}.csv
-    列: query_id | question | answer | contexts | ground_truth
 """
 import argparse
-import json
 import logging
 import os
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
 import pandas as pd
@@ -38,14 +32,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import config as cfg  # noqa: E402 — 须最先导入，触发 HF 镜像设置
 
 from data.loader import load_queries_with_qrels
-from rag.augmenter import Augmenter
-from rag.generator import Generator
-from rag.retriever import Retriever
+from rag.pipeline import available_modes, create_pipeline
 
 logger = logging.getLogger(__name__)
 
 # dataset 模式 → (query 数量, ChromaDB 集合名)
-_dataset_slug = cfg.DATASET_NAME.split("/")[-1]
+_dataset_slug = cfg.DATASET_NAME
 DATASET_CONFIG = {
     "dev":  (cfg.DEV_QUERY_NUM,  f"{_dataset_slug}_dev"),
     "eval": (cfg.EVAL_QUERY_NUM, f"{_dataset_slug}_eval"),
@@ -53,7 +45,7 @@ DATASET_CONFIG = {
 
 
 # ──────────────────────────────────────────────────────────
-# 核心流水线
+# 核心实验流程
 # ──────────────────────────────────────────────────────────
 
 def run_experiment(
@@ -63,17 +55,7 @@ def run_experiment(
 ) -> str:
     """
     执行一次完整的 RAG 实验，返回输出 CSV 路径。
-
-    Args:
-        mode:        "no_rag" 或 "naive_rag"
-        dataset:     "dev" 或 "eval"
-        num_queries: 覆盖默认 query 数（None = 使用 config 默认值）
-
-    Returns:
-        str: 结果 CSV 的绝对路径
     """
-    if mode not in ("no_rag", "naive_rag"):
-        raise ValueError(f"mode 须为 'no_rag' 或 'naive_rag'，收到: {mode!r}")
     if dataset not in DATASET_CONFIG:
         raise ValueError(f"dataset 须为 'dev' 或 'eval'，收到: {dataset!r}")
 
@@ -84,7 +66,7 @@ def run_experiment(
     logger.info(f" 实验配置")
     logger.info(f"   mode       : {mode}")
     logger.info(f"   dataset    : {dataset}  ({nq} queries)")
-    logger.info(f"   collection : {collection_name}  (naive_rag 时使用)")
+    logger.info(f"   collection : {collection_name}")
     logger.info("=" * 60)
 
     # ── 1. 加载 Queries ──────────────────────────────────────
@@ -92,86 +74,125 @@ def run_experiment(
     queries = load_queries_with_qrels(num_queries=nq)
     logger.info(f"  已加载 {len(queries)} 条 query")
 
-    # ── 2. 初始化组件 ─────────────────────────────────────────
-    logger.info("[Step 2] 初始化 RAG 组件 …")
-    augmenter = Augmenter()
-    generator = Generator()
+    # ── 2. 创建 Pipeline（通过注册表自动路由）───────────────
+    logger.info(f"[Step 2] 创建 Pipeline (mode={mode}) …")
+    pipeline = create_pipeline(mode, collection_name=collection_name)
 
-    retriever = None
-    if mode == "naive_rag":
-        retriever = Retriever(collection_name=collection_name)
-        if retriever.count() == 0:
-            raise RuntimeError(
-                f"ChromaDB 集合 '{collection_name}' 为空！\n"
-                f"请先运行: python build_index.py --mode {dataset}"
-            )
-        logger.info(f"  Retriever 就绪，索引文档数: {retriever.count():,}")
+    # ── 准备输出目录和断点文件 ─────────────────────────────────
+    # 先扫描是否已有断点（支持跨天续跑）
+    ckpt_path = None
+    run_dir   = None
+    if os.path.isdir(cfg.RESULTS_DIR):
+        for entry in sorted(os.listdir(cfg.RESULTS_DIR)):
+            candidate = os.path.join(cfg.RESULTS_DIR, entry, mode)
+            candidate_ckpt = os.path.join(candidate, f"{mode}_{dataset}_checkpoint.csv")
+            if os.path.exists(candidate_ckpt):
+                ckpt_path = candidate_ckpt
+                run_dir   = candidate
+                break
 
-    # ── 3. 运行流水线 ─────────────────────────────────────────
-    logger.info(f"[Step 3] 开始推理（mode={mode}，共 {len(queries)} 条）…")
-    results = []
-    errors  = 0
-    t_start = time.time()
-
-    for item in tqdm(queries, desc=f"[{mode}]", unit="query"):
-        qid       = item["query_id"]
-        question  = item["question"]
-        gt        = item["ground_truth"]
-        contexts  = []
-
-        # 检索（仅 naive_rag）
-        if mode == "naive_rag":
-            hits     = retriever.retrieve(question, top_k=cfg.TOP_K)
-            contexts = [h["text"] for h in hits]
-
-        # 构建 Prompt
-        prompt = augmenter.build_prompt(question, contexts)
-
-        # LLM 生成（带错误恢复）
-        try:
-            answer = generator.generate(prompt)
-        except Exception as e:
-            logger.warning(f"  [WARN] query {qid} 生成失败: {e}")
-            answer = ""
-            errors += 1
-
-        result = {
-            "query_id":     qid,
-            "question":     question,
-            "answer":       answer,
-            "ground_truth": gt,
-        }
-        # contexts 存为独立列 context_0 / context_1 / ...（避免 CSV 内嵌 JSON）
-        for i, ctx in enumerate(contexts):
-            result[f"context_{i}"] = ctx
-        results.append(result)
-
-    elapsed = time.time() - t_start
-    logger.info(
-        f"[Step 3] 推理完成: {len(results)} 条，"
-        f"失败 {errors} 条，耗时 {elapsed:.1f}s "
-        f"({elapsed / len(results):.2f}s/query)"
-    )
-
-    # ── 4. 保存 CSV ───────────────────────────────────────────
-    ts       = datetime.now().strftime("%Y%m%d_%H%M%S")
-    date_str = datetime.now().strftime("%Y%m%d")
-    run_dir  = os.path.join(cfg.RESULTS_DIR, f"run_{date_str}", mode)
+    # 没找到断点，用当天日期创建新目录
+    if run_dir is None:
+        date_str = datetime.now().strftime("%Y%m%d")
+        run_dir  = os.path.join(cfg.RESULTS_DIR, f"run_{date_str}", mode)
     os.makedirs(run_dir, exist_ok=True)
-    filename  = f"{mode}_{dataset}_{ts}.csv"
-    out_path  = os.path.join(run_dir, filename)
+    if ckpt_path is None:
+        ckpt_path = os.path.join(run_dir, f"{mode}_{dataset}_checkpoint.csv")
+
+    # ── 2.5 加载断点（如果存在）─────────────────────────────────
+    done_ids = set()
+    results  = []
+    if os.path.exists(ckpt_path):
+        existing_df = pd.read_csv(ckpt_path)
+        done_ids = set(existing_df["query_id"].astype(str))
+        results  = existing_df.to_dict("records")
+        logger.info(f"  从断点恢复: 已有 {len(done_ids)} 条结果，跳过")
+
+    pending = [q for q in queries if str(q["query_id"]) not in done_ids]
+    logger.info(f"  待处理: {len(pending)} 条（已完成: {len(done_ids)} 条）")
+
+    if not pending:
+        logger.info("  所有 query 已完成，跳过推理")
+    else:
+        # ── 3. 并发推理 ─────────────────────────────────────────
+        n_workers = min(cfg.CONCURRENT_REQUESTS, len(pending))
+        logger.info(
+            f"[Step 3] 开始推理（mode={mode}，{len(pending)} 条，"
+            f"并发={n_workers}）…"
+        )
+        errors  = 0
+        t_start = time.time()
+
+        def _process_one(item):
+            try:
+                output = pipeline.process(item["question"])
+                answer = output["answer"]
+                contexts = output["contexts"]
+            except Exception as e:
+                logger.warning(f"  [WARN] query {item['query_id']} 失败: {e}")
+                return item, "", [], True
+            return item, answer, contexts, False
+
+        with ThreadPoolExecutor(max_workers=n_workers) as pool:
+            futures = {pool.submit(_process_one, item): item for item in pending}
+            with tqdm(total=len(pending), desc=f"[{mode}]", unit="query") as pbar:
+                for future in as_completed(futures):
+                    item, answer, contexts, is_error = future.result()
+                    if is_error:
+                        errors += 1
+
+                    result = {
+                        "query_id":         item["query_id"],
+                        "question":         item["question"],
+                        "answer":           answer,
+                        "ground_truth":     item["ground_truth"],
+                        "is_impossible":    item["is_impossible"],
+                        "relevant_context": item["relevant_context"],
+                    }
+                    for i, ctx in enumerate(contexts):
+                        result[f"context_{i}"] = ctx
+                    results.append(result)
+                    done_ids.add(str(item["query_id"]))
+                    pbar.update(1)
+
+                    # 定期保存断点
+                    if len(done_ids) % cfg.CHECKPOINT_INTERVAL == 0:
+                        pd.DataFrame(results).to_csv(
+                            ckpt_path, index=False, encoding="utf-8"
+                        )
+
+        elapsed = time.time() - t_start
+        logger.info(
+            f"[Step 3] 推理完成: {len(results)} 条，"
+            f"失败 {errors} 条，耗时 {elapsed:.1f}s "
+            f"({elapsed / max(len(pending), 1):.2f}s/query)"
+        )
+
+    # ── 4. 保存最终 CSV ──────────────────────────────────────
+    ts      = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{mode}_{dataset}_{ts}.csv"
+    out_path = os.path.join(run_dir, filename)
 
     df = pd.DataFrame(results)
     df.to_csv(out_path, index=False, encoding="utf-8")
     logger.info(f"[Step 4] 结果已保存: {out_path}  ({len(df)} 行 × {len(df.columns)} 列)")
 
+    # 删除断点文件
+    if os.path.exists(ckpt_path):
+        os.remove(ckpt_path)
+        logger.info("  断点文件已清理")
+
     # ── 5. 简要统计 ───────────────────────────────────────────
     answered = df[df["answer"].str.strip() != ""]
     logger.info(f"  有效回答率: {len(answered)}/{len(df)} ({100*len(answered)/len(df):.1f}%)")
     logger.info(f"  平均回答长度: {df['answer'].str.split().apply(len).mean():.0f} 词")
-    if mode == "naive_rag":
-        ctx_cols = [c for c in df.columns if c.startswith("context_")]
-        logger.info(f"  平均检索段落数: {len(ctx_cols)}")
+    if "is_impossible" in df.columns:
+        ans_df = df[~df["is_impossible"]]
+        unans_df = df[df["is_impossible"]]
+        logger.info(f"  可回答: {len(ans_df)} 条，不可回答: {len(unans_df)} 条")
+    ctx_cols = [c for c in df.columns if c.startswith("context_")]
+    if ctx_cols:
+        logger.info(f"  检索段落数: {len(ctx_cols)}")
 
     return out_path
 
@@ -182,7 +203,7 @@ def run_experiment(
 
 def _parse_args():
     parser = argparse.ArgumentParser(
-        description="Run RAG baseline experiment",
+        description="Run RAG experiment",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -192,12 +213,12 @@ Examples:
         """,
     )
     parser.add_argument(
-        "--mode", required=True, choices=["no_rag", "naive_rag"],
-        help="no_rag: LLM only  |  naive_rag: Retrieve then Generate",
+        "--mode", required=True,
+        help=f"Pipeline mode, available: {', '.join(available_modes())}",
     )
     parser.add_argument(
         "--dataset", default="dev", choices=["dev", "eval"],
-        help="dev=200q/10k docs  |  eval=500q/50k docs  (default: dev)",
+        help="dev=50q  |  eval=full  (default: dev)",
     )
     parser.add_argument(
         "--num-queries", type=int, default=None, metavar="N",
