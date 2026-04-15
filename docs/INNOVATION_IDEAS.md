@@ -12,7 +12,7 @@
 **源码**：论文称"will publish later"，2024年论文，社区有非官方实现
 
 **可行的融合方案**：
-- CRAG-Lite：只取检索评估器+拒绝机制，不做网络搜索。零训练路径用 bge-m3 相似度，轻量训练路径用 bge-reranker。直接解决 hallucination_rate=0.936 的瓶颈。预计半天实现。
+- CRAG-Lite：只取检索评估器+拒绝机制，不做网络搜索。零训练路径用 bge-m3 相似度，轻量训练路径用 bge-reranker。直接解决 hallucination_rate=0.936 的瓶颈。预计半天实现。**→ 已实现（rag/crag/），mode: crag_lite，待评测**
 - CRAG-Full：完整复现 CRAG（评估器+知识精炼+网络搜索）。在 CRAG-Lite 基础上加搜索 API。预计 2-3 天实现。
 
 **可与以下已实现创新点缝合**：

@@ -150,21 +150,14 @@ def _create_naive_rag(collection_name=None, **kwargs):
 
 
 # ──────────────────────────────────────────────────────────
-# 扩展示例（未来创新点添加模板）
+# 扩展模式注册（只追加，不改已有注册）
 # ──────────────────────────────────────────────────────────
 
-# 每个创新点的代码放在 rag/<方法名>/ 子文件夹中，不要在 rag/ 根目录创建散文件。
-# 以下是添加新创新点的模板，取消注释并修改即可使用：
-#
-# @register_pipeline("crag")
-# def _create_crag(collection_name=None, **kwargs):
-#     from rag.crag.pipeline import CRAGPipeline   # 新建 rag/crag/ 子文件夹
-#     return CRAGPipeline(collection_name=collection_name)
-#
-# @register_pipeline("self_rag")
-# def _create_self_rag(collection_name=None, **kwargs):
-#     from rag.self_rag.pipeline import SelfRAGPipeline   # 新建 rag/self_rag/ 子文件夹
-#     return SelfRAGPipeline(collection_name=collection_name)
+@register_pipeline("crag_lite")
+def _create_crag_lite(collection_name=None, **kwargs):
+    """CRAG-Lite：检索评估 + 知识精炼 + 拒绝机制（无网络搜索）。"""
+    from rag.crag.pipeline import CRAGPipeline
+    return CRAGPipeline(collection_name=collection_name)
 
 
 # ──────────────────────────────────────────────────────────

@@ -4,6 +4,34 @@
 
 ---
 
+## 2026-04-15 — CRAG-Lite 实现
+
+**内容**：
+- 实现 CRAG 论文（Yan et al. 2024）的轻量版本 CRAG-Lite
+- 零训练路径：直接复用 bge-m3 余弦相似度分数作为检索评估指标
+
+**新增文件**：
+- `rag/crag/__init__.py` — 包标记
+- `rag/crag/evaluator.py` — 检索评估器（三档动作：correct/incorrect/ambiguous）
+- `rag/crag/refiner.py` — 知识精炼（decompose-then-recompose）
+- `rag/crag/pipeline.py` — CRAGPipeline 类（继承 Pipeline，重写 process）
+
+**注册 mode**：`crag_lite`（在 rag/pipeline.py 追加注册）
+
+**核心逻辑**：
+```
+检索 top-5 → 评估器判断（阈值 upper=0.50, lower=0.30）
+  ├─ correct    → 知识精炼（分句→过滤→重组）→ RAG prompt → 生成
+  ├─ incorrect  → 拒绝 prompt → "I cannot answer..."
+  └─ ambiguous  → 知识精炼 + 不确定性提示 → 生成
+```
+
+**状态**：代码已完成，待实验验证
+
+---
+
+
+
 ## 2026-04-14 — Baseline 实验完成
 
 **内容**：

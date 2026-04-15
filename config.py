@@ -20,7 +20,7 @@ if os.path.isfile(_env_path):
 HF_ENDPOINT  = "https://hf-mirror.com"
 HF_CACHE_DIR = "/data/zhaoyaoxi/huggingface_cache"
 
-CUDA_VISIBLE_DEVICES = "2"       # 指定使用的 GPU 编号（bge-m3 及 Embedding 相关）
+CUDA_VISIBLE_DEVICES = "3"       # 指定使用的 GPU 编号（bge-m3 及 Embedding 相关）
 EMBED_GPU = "cuda:0"             # torch 内部设备号（CUDA_VISIBLE_DEVICES 映射后始终为 cuda:0）
 
 os.environ["HF_ENDPOINT"]         = HF_ENDPOINT
