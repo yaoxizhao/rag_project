@@ -5,7 +5,7 @@
 
 ### [按需执行] Step 1: 构建/更新向量索引
 - 脚本：`build_index.py`
-- 说明：加载 BeIR/fiqa corpus，切块后用 BAAI/bge-m3 编码，存入 ChromaDB
+- 说明：加载 config.py 指定的 corpus（DATASET_NAME），切块后用 EMBED_MODEL 编码，存入 ChromaDB
 - 触发条件：**仅在**首次运行、更换数据集、或修改 Chunk/Embedding 策略时才需要执行。平常跑实验**无需重复执行**。
 - 产出：`chroma_db/` 目录
 

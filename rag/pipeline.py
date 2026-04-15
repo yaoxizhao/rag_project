@@ -153,26 +153,18 @@ def _create_naive_rag(collection_name=None, **kwargs):
 # 扩展示例（未来创新点添加模板）
 # ──────────────────────────────────────────────────────────
 
+# 每个创新点的代码放在 rag/<方法名>/ 子文件夹中，不要在 rag/ 根目录创建散文件。
 # 以下是添加新创新点的模板，取消注释并修改即可使用：
 #
-# @register_pipeline("hybrid_rag")
-# def _create_hybrid_rag(collection_name=None, **kwargs):
-#     from rag.augmenter import Augmenter
-#     from rag.generator import Generator
-#     from rag.hybrid_retriever import HybridRetriever   # 新建文件
-#
-#     retriever = HybridRetriever(collection_name=collection_name)
-#     return Pipeline(
-#         retriever=retriever,
-#         augmenter=Augmenter(),
-#         generator=Generator(),
-#     )
+# @register_pipeline("crag")
+# def _create_crag(collection_name=None, **kwargs):
+#     from rag.crag.pipeline import CRAGPipeline   # 新建 rag/crag/ 子文件夹
+#     return CRAGPipeline(collection_name=collection_name)
 #
 # @register_pipeline("self_rag")
 # def _create_self_rag(collection_name=None, **kwargs):
-#     from rag.self_rag import SelfRAGPipeline   # 新建文件
+#     from rag.self_rag.pipeline import SelfRAGPipeline   # 新建 rag/self_rag/ 子文件夹
 #     return SelfRAGPipeline(collection_name=collection_name)
-#     # SelfRAGPipeline 继承 Pipeline 并重写 process()
 
 
 # ──────────────────────────────────────────────────────────
